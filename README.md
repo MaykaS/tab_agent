@@ -11,8 +11,12 @@ No API key required. No data leaves your device. Works for any Chrome user on de
 - Reads all your open tabs and sends them to Gemini Nano (runs locally in your browser)
 - Groups them by topic using AI — e.g. "Python debugging", "Research papers", "Shopping"
 - Shows the groups in a popup with the tab titles under each group
+- **Remembers your groups** — closing and reopening the popup is instant, no re-grouping. Hit "Regroup" when you want a fresh analysis
 - Lets you **sleep** a group (suspends tabs to free memory) or **close** a group with one click
-- Tracks which tabs you visit frequently and **protects** them — frequent tabs are never suspended automatically
+- Slept groups **stay visible** in the popup with a Wake button — click Wake to reload all tabs in that group
+- Tracks which tabs you visit frequently and shows a **"frequent" badge** on those tabs
+- If you try to sleep or close a group with frequent tabs, it **asks you to confirm** before acting on them
+- If you cancel closing a mixed group, only the non-frequent tabs close — frequent tabs stay open and visible in the group
 - Learns from your behavior over time via local visit history
 
 ---
@@ -35,7 +39,7 @@ Gemini Nano is built into Chrome but requires a one-time setup. Do this before r
 
 ### Step 1 — Enable the flags
 
-Open Chrome and go to each of these URLs. Set the value shown and leave the page open.
+Open Chrome and go to each of these URLs. Set the value shown.
 
 **Flag 1:**
 ```
@@ -73,7 +77,7 @@ await LanguageModel.availability()
 
 It should return `"available"`. If it still says `"downloadable"`, wait a few more minutes and try again.
 
-> Note: You may see a warning about output language — ignore it. It doesn't affect functionality.
+> Note: You may see a warning about output language in the DevTools console — this is harmless and won't affect functionality.
 
 ---
 
@@ -96,7 +100,7 @@ It should return `"available"`. If it still says `"downloadable"`, wait a few mo
 
 5. The extension appears in your Chrome toolbar — click it to open the popup
 
-> Every time you change a file, go back to `chrome://extensions` and click the refresh icon on the Tab Agent card.
+> Every time you change a file, go back to `chrome://extensions` and click the refresh icon on the Tab Agent card. Then close and reopen the popup.
 
 ---
 
@@ -107,7 +111,7 @@ tab-agent/
 ├── README.md         ← you are here
 ├── SPEC.md           ← product specification (what we're building and why)
 ├── AGENTS.md         ← agent design (the observe → decide → act loop)
-├── TASKS.md          ← build checklist (36 tasks across 2 days)
+├── TASKS.md          ← build checklist (36 tasks across the 2-day MVP sprint)
 ├── manifest.json     ← Chrome extension entry point
 ├── background.js     ← silent background service worker
 ├── popup.html        ← UI that appears when you click the extension icon
@@ -128,18 +132,46 @@ The small window that appears when you click the extension icon in the toolbar. 
 
 **`popup.js`**
 The brain of the popup. Runs the full agent loop when the popup opens:
-1. Read all open tabs (`chrome.tabs.query`)
-2. Read visit history from storage
-3. Call Gemini Nano with the tab list
-4. Parse the grouped response
-5. Render groups into the popup
-6. Handle sleep/close button clicks
+1. Check storage for cached groups — if found, render instantly (no AI call)
+2. If no cache or Regroup pressed: read all open tabs, call Gemini Nano, parse groups, save to storage
+3. Read visit history to identify frequent tabs
+4. Render groups into the popup with sleep/wake/close buttons
+5. Handle all button actions, persisting sleep/wake state across popup opens
 
 **`storage.js`**
 A shared utility module used by both `background.js` and `popup.js`. Contains three functions:
 - `writeVisit(url)` — saves a tab visit with current timestamp
 - `getFrequentUrls(threshold, windowHours)` — returns URLs visited frequently
 - `pruneOldVisits()` — removes entries older than 7 days
+
+---
+
+## Git workflow
+
+Every task in TASKS.md gets its own commit. This keeps your history clean and maps directly to your build log.
+
+### Commit format
+
+```bash
+git add .
+git commit -m "T01 - short description of what you did"
+git push origin main
+```
+
+### Commit history so far
+
+```
+T01-T04  - extension skeleton: all 5 files, loads in Chrome
+T05-T29  - full agent loop: observe, group, render, sleep/wake, storage, frequent tabs
+T30-T31  - fix sleep/close: confirm before acting on frequent tabs, keep group visible after partial close
+```
+
+### After every code change
+
+1. Make your change
+2. Go to `chrome://extensions` → click the refresh icon on Tab Agent
+3. Close and reopen the popup to test
+4. If it works → commit
 
 ---
 
@@ -180,6 +212,7 @@ This project is part of a research course. The required deliverables are:
 
 - Requires manual Chrome flag setup (see above)
 - Gemini Nano only supports English, Spanish, and Japanese
-- Groups are regenerated fresh each time the popup opens — no persistence between sessions
-- No undo for sleep or close actions
+- Groups persist between popup opens but reset if you hit Regroup or reinstall the extension
+- No undo for close actions (sleep can be undone with Wake)
 - No autonomous actions — all actions require a user click
+- Grouping quality depends on Gemini Nano — it's a small model, good but not perfect
