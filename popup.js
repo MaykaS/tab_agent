@@ -290,12 +290,32 @@ async function sleepGroup(group, tabMap, frequentUrls, groupIndex, groupEl, slee
   const frequentInGroup = group.tabIds.filter(id => tabMap[id] && frequentUrls.has(tabMap[id].url));
   const nonFrequent = group.tabIds.filter(id => tabMap[id] && !frequentUrls.has(tabMap[id].url));
 
-  const toSleep = nonFrequent; // Sleep never touches frequent tabs
+  let toSleep = nonFrequent;
 
-  if (toSleep.length === 0) {
-    alert("All tabs in this group are frequently visited — none were slept.");
-    return;
+  // If there are frequent tabs, ask the user what to do
+  if (frequentInGroup.length > 0) {
+    if (nonFrequent.length === 0) {
+      // All tabs are frequent — must confirm to sleep any of them
+      const word = frequentInGroup.length === 1 ? "tab" : "tabs";
+      const confirmed = confirm(
+        `All ${frequentInGroup.length} ${word} in this group are frequently visited. Sleep them anyway?`
+      );
+      if (!confirmed) return;
+      toSleep = frequentInGroup;
+    } else {
+      // Mixed group — ask if they want to include frequent tabs too
+      const word = frequentInGroup.length === 1 ? "tab" : "tabs";
+      const confirmed = confirm(
+        `This group has ${frequentInGroup.length} frequently visited ${word}. Sleep them too?`
+      );
+      if (confirmed) {
+        toSleep = group.tabIds.filter(id => tabMap[id]);
+      }
+      // if not confirmed, toSleep stays as nonFrequent only
+    }
   }
+
+  if (toSleep.length === 0) return;
 
   for (const tabId of toSleep) {
     try { await chrome.tabs.discard(tabId); }
@@ -343,6 +363,7 @@ async function closeGroup(group, tabMap, frequentUrls, groupEl) {
   const nonFrequent = group.tabIds.filter(id => tabMap[id] && !frequentUrls.has(tabMap[id].url));
 
   let toClose = nonFrequent;
+  let closeAll = false;
 
   // If there are frequent tabs, ask the user what to do
   if (frequentInGroup.length > 0) {
@@ -351,9 +372,9 @@ async function closeGroup(group, tabMap, frequentUrls, groupEl) {
       `This group has ${frequentInGroup.length} frequently visited ${word}. Close them too?`
     );
     if (confirmed) {
-      toClose = group.tabIds.filter(id => tabMap[id]); // close everything
+      closeAll = true;
+      toClose = group.tabIds.filter(id => tabMap[id]);
     }
-    // if not confirmed, toClose stays as nonFrequent only
   }
 
   if (toClose.length === 0) return;
@@ -361,7 +382,16 @@ async function closeGroup(group, tabMap, frequentUrls, groupEl) {
   try { await chrome.tabs.remove(toClose); }
   catch (e) { console.warn("Could not close tabs", e); }
 
-  groupEl.remove();
+  if (closeAll || frequentInGroup.length === 0) {
+    // Remove the whole group from the UI
+    groupEl.remove();
+  } else {
+    // Only remove closed tab items, keep group visible with frequent tabs remaining
+    for (const tabId of toClose) {
+      const item = groupEl.querySelector(`[data-tab-id="${tabId}"]`);
+      if (item) item.remove();
+    }
+  }
 }
 
 // ─── UI helpers ──────────────────────────────────────────────────────────────
