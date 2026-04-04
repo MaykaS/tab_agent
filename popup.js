@@ -4,13 +4,18 @@ const statusEl = document.getElementById("status");
 const errorEl = document.getElementById("error");
 const groupsEl = document.getElementById("groups");
 const regroupBtn = document.getElementById("regroup-btn");
+const statsBtn = document.getElementById("stats-btn");
 
 const STORAGE_GROUPS_KEY = "cachedGroups";
 const STORAGE_ASLEEP_KEY = "asleepGroups";
+const STORAGE_SAVED_KEY  = "memorySaved";
 
 // ─── Entry point ─────────────────────────────────────────────────────────────
 
 regroupBtn.addEventListener("click", () => runAgent(true));
+statsBtn.addEventListener("click", () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL("stats.html") });
+});
 runAgent(false);
 
 // ─── Main agent loop ─────────────────────────────────────────────────────────
@@ -113,7 +118,9 @@ async function decideGroups(tabs) {
   }
 
   const session = await LanguageModel.create({
-    systemPrompt: "You are a browser tab organizer. You group tabs by topic. You always respond with valid JSON only — no markdown, no explanation, no extra text."
+    systemPrompt: "You are a browser tab organizer. You group tabs by topic. You always respond with valid JSON only — no markdown, no explanation, no extra text.",
+    expectedInputLanguages: ["en"],
+    expectedOutputLanguages: ["en"]
   });
 
   const tabList = tabs.map(t => ({ id: t.id, title: t.title, url: t.url }));
@@ -326,6 +333,14 @@ async function sleepGroup(group, tabMap, frequentUrls, groupIndex, groupEl, slee
   asleepGroups[groupIndex] = toSleep;
   await updateAsleepState(asleepGroups);
 
+  // Track estimated memory saved (~50MB per discarded tab)
+  try {
+    const savedMB = toSleep.length * 50;
+    const data = await chrome.storage.local.get(STORAGE_SAVED_KEY);
+    const prev = data[STORAGE_SAVED_KEY] || 0;
+    await chrome.storage.local.set({ [STORAGE_SAVED_KEY]: prev + savedMB });
+  } catch(e) { /* silently skip */ }
+
   // Update UI
   groupEl.classList.add("group-asleep");
   sleepBtn.style.display = "none";
@@ -359,39 +374,96 @@ async function wakeGroup(groupIndex, groupEl, sleepBtn, wakeBtn, statusBadge, li
 }
 
 async function closeGroup(group, tabMap, frequentUrls, groupEl) {
-  const frequentInGroup = group.tabIds.filter(id => tabMap[id] && frequentUrls.has(tabMap[id].url));
-  const nonFrequent = group.tabIds.filter(id => tabMap[id] && !frequentUrls.has(tabMap[id].url));
+  // Get current real tabs from Chrome — cached tabIds may be stale
+  const realTabs = await chrome.tabs.query({});
 
-  let toClose = nonFrequent;
+  // Build URL → real tab ID map
+  const urlToRealId = {};
+  for (const t of realTabs) {
+    if (t.url) urlToRealId[t.url] = t.id;
+  }
+
+  // Map group's cached tabs to real current tab IDs via URL matching
+  const groupUrls = group.tabIds
+    .map(id => tabMap[id]?.url)
+    .filter(Boolean);
+
+  const frequentUrls_set = frequentUrls;
+  const frequentGroupUrls = groupUrls.filter(url => frequentUrls_set.has(url));
+  const nonFrequentUrls   = groupUrls.filter(url => !frequentUrls_set.has(url));
+
+  let urlsToClose = nonFrequentUrls;
   let closeAll = false;
 
-  // If there are frequent tabs, ask the user what to do
-  if (frequentInGroup.length > 0) {
-    const word = frequentInGroup.length === 1 ? "tab" : "tabs";
+  if (frequentGroupUrls.length > 0) {
+    const word = frequentGroupUrls.length === 1 ? "tab" : "tabs";
     const confirmed = confirm(
-      `This group has ${frequentInGroup.length} frequently visited ${word}. Close them too?`
+      `This group has ${frequentGroupUrls.length} frequently visited ${word}. Close them too?`
     );
     if (confirmed) {
+      urlsToClose = groupUrls;
       closeAll = true;
-      toClose = group.tabIds.filter(id => tabMap[id]);
     }
-  }
-
-  if (toClose.length === 0) return;
-
-  try { await chrome.tabs.remove(toClose); }
-  catch (e) { console.warn("Could not close tabs", e); }
-
-  if (closeAll || frequentInGroup.length === 0) {
-    // Remove the whole group from the UI
-    groupEl.remove();
   } else {
-    // Only remove closed tab items, keep group visible with frequent tabs remaining
-    for (const tabId of toClose) {
-      const item = groupEl.querySelector(`[data-tab-id="${tabId}"]`);
-      if (item) item.remove();
+    closeAll = true;
+  }
+
+  if (urlsToClose.length === 0) return;
+
+  // Close by real current tab IDs (matched by URL)
+  const idsToClose = urlsToClose.map(url => urlToRealId[url]).filter(Boolean);
+  console.log("Tab Agent: closing tab IDs", idsToClose, "for URLs", urlsToClose);
+
+  if (idsToClose.length > 0) {
+    try {
+      await chrome.tabs.remove(idsToClose);
+    } catch (e) {
+      // Fallback: close one by one
+      for (const tabId of idsToClose) {
+        try { await chrome.tabs.remove(tabId); } catch (e2) { /* already gone */ }
+      }
     }
   }
+
+  if (closeAll) {
+    groupEl.remove();
+    // Remove group from cache so it doesn't reappear on reopen
+    await removeGroupFromCache(group);
+  } else {
+    // Keep group, remove only the closed tab rows
+    for (const url of urlsToClose) {
+      const id = group.tabIds.find(id => tabMap[id]?.url === url);
+      if (id) {
+        const item = groupEl.querySelector(`[data-tab-id="${id}"]`);
+        if (item) item.remove();
+      }
+    }
+    // Update cache to remove closed tabs from this group
+    await removeTabsFromGroupCache(group, urlsToClose);
+  }
+}
+
+async function removeGroupFromCache(group) {
+  const data = await chrome.storage.local.get(STORAGE_GROUPS_KEY);
+  if (!data[STORAGE_GROUPS_KEY]) return;
+  const { groups, tabMap } = data[STORAGE_GROUPS_KEY];
+  const updated = groups.filter(g => g.name !== group.name);
+  await chrome.storage.local.set({ [STORAGE_GROUPS_KEY]: { groups: updated, tabMap } });
+}
+
+async function removeTabsFromGroupCache(group, closedUrls) {
+  const data = await chrome.storage.local.get(STORAGE_GROUPS_KEY);
+  if (!data[STORAGE_GROUPS_KEY]) return;
+  const { groups, tabMap } = data[STORAGE_GROUPS_KEY];
+  const closedUrlSet = new Set(closedUrls);
+  const updated = groups.map(g => {
+    if (g.name !== group.name) return g;
+    return {
+      ...g,
+      tabIds: g.tabIds.filter(id => !closedUrlSet.has(tabMap[id]?.url))
+    };
+  });
+  await chrome.storage.local.set({ [STORAGE_GROUPS_KEY]: { groups: updated, tabMap } });
 }
 
 // ─── UI helpers ──────────────────────────────────────────────────────────────

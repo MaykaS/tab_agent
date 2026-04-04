@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tab Agent — Stats</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      color: #1a1a1a;
+      background: #f5f5f5;
+      padding: 32px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: #666; margin-bottom: 28px; }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #888;
+      margin-bottom: 14px;
+    }
+
+    /* Summary row */
+    .summary-row {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .stat-box {
+      flex: 1;
+      min-width: 140px;
+      background: #f9f9f9;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+
+    .stat-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+    .stat-value { font-size: 24px; font-weight: 600; color: #111; }
+    .stat-unit  { font-size: 12px; color: #888; margin-left: 2px; }
+    .stat-value.green { color: #2e7d32; }
+    .stat-value.blue  { color: #1a6fa3; }
+
+    /* Group memory table */
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      padding: 0 0 8px;
+      border-bottom: 1px solid #eee;
+    }
+    td {
+      padding: 9px 0;
+      font-size: 13px;
+      border-bottom: 1px solid #f0f0f0;
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    .group-name-cell { font-weight: 500; }
+
+    .status-pill {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 20px;
+    }
+    .pill-awake { background: #e8f5e9; color: #2e7d32; }
+    .pill-asleep { background: #e0e0e0; color: #555; }
+
+    .mem-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mem-bar-bg {
+      flex: 1;
+      height: 6px;
+      background: #f0f0f0;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .mem-bar-fill {
+      height: 100%;
+      background: #1a6fa3;
+      border-radius: 3px;
+      transition: width 0.4s;
+    }
+    .mem-bar-fill.asleep { background: #bbb; }
+    .mem-label { font-size: 12px; color: #555; min-width: 52px; text-align: right; }
+
+    /* Agreement section */
+    .agreement-intro {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .group-rating {
+      background: #f9f9f9;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+
+    .group-rating-name {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .rating-tabs {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 10px;
+      line-height: 1.6;
+    }
+
+    .stars { display: flex; gap: 6px; }
+    .star {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      background: #fff;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .star:hover, .star.selected { background: #fff3cd; border-color: #ffc107; }
+
+    .rating-label {
+      font-size: 11px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    .score-result {
+      margin-top: 16px;
+      padding: 14px 16px;
+      background: #e8f5e9;
+      border: 1px solid #c8e6c9;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #2e7d32;
+      display: none;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 8px 18px;
+      border-radius: 7px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .btn-primary { background: #1a6fa3; color: #fff; }
+    .btn-primary:hover { background: #155d8a; }
+    .btn-secondary { background: #f0f0f0; color: #333; margin-left: 8px; }
+    .btn-secondary:hover { background: #e4e4e4; }
+
+    .refresh-note {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 10px;
+    }
+
+    #no-data {
+      font-size: 13px;
+      color: #888;
+      padding: 12px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tab Agent — Stats</h1>
+  <p class="subtitle">Memory usage and grouping quality measurements</p>
+
+  <!-- Summary -->
+  <div class="card">
+    <div class="card-title">Summary</div>
+    <div class="summary-row">
+      <div class="stat-box">
+        <div class="stat-label">Total tab memory</div>
+        <div class="stat-value blue" id="total-memory">—</div>
+        <div class="stat-unit">MB</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Memory saved (slept)</div>
+        <div class="stat-value green" id="memory-saved">0</div>
+        <div class="stat-unit">MB saved</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Tabs open</div>
+        <div class="stat-value" id="tab-count">—</div>
+        <div class="stat-unit">tabs</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Groups</div>
+        <div class="stat-value" id="group-count">—</div>
+        <div class="stat-unit">groups</div>
+      </div>
+    </div>
+    <p class="refresh-note">* Memory data refreshes every 5 seconds. Requires Chrome processes permission.</p>
+  </div>
+
+  <!-- Memory per group -->
+  <div class="card">
+    <div class="card-title">Memory per group</div>
+    <div id="group-table-wrap">
+      <p id="no-data">No groups cached yet — open the Tab Agent popup first.</p>
+    </div>
+  </div>
+
+  <!-- Grouping agreement test -->
+  <div class="card">
+    <div class="card-title">Grouping quality — agreement test</div>
+    <p class="agreement-intro">
+      Rate how well Tab Agent grouped your tabs compared to how <em>you</em> would have grouped them.
+      1 star = completely wrong, 5 stars = exactly right. This measures Claim 1: grouping quality.
+    </p>
+    <div id="rating-form">
+      <p id="no-groups-msg" style="font-size:13px;color:#888;">No groups to rate — open the popup first.</p>
+    </div>
+    <div class="score-result" id="score-result"></div>
+  </div>
+
+  <script src="storage.js"></script>
+  <script src="stats.js"></script>
+</body>
+</html>

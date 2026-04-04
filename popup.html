@@ -26,6 +26,17 @@
 
     header h1 { font-size: 14px; font-weight: 600; color: #111; }
 
+    #stats-btn {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      background: #f0f0ff;
+      cursor: pointer;
+      color: #444;
+    }
+    #stats-btn:hover { background: #e4e4f8; }
+
     #regroup-btn {
       font-size: 11px;
       padding: 3px 10px;
@@ -167,7 +178,10 @@
 <body>
   <header>
     <h1>Tab Agent</h1>
-    <button id="regroup-btn">Regroup</button>
+    <div style="display:flex;gap:6px;">
+      <button id="stats-btn">Stats</button>
+      <button id="regroup-btn">Regroup</button>
+    </div>
   </header>
 
   <div id="status">
