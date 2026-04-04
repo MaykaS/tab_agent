@@ -319,7 +319,7 @@ Chrome extensions can't be deployed to Vercel directly — they're installed loc
 | TASKS.md | ✅ Done | 48 tasks, all checked off |
 | SPEC.md | ✅ Done | F12 features, all acceptance criteria met |
 | MVP (implementation) | ✅ Done | Extension built and working |
-| Vercel deployment | 🔲 To do | Landing page + demo — build after User Study |
+| Vercel deployment | ✅ Done | Live at https://tabagentweb-on16.vercel.app/ |
 | User Study | 🔲 To do | 5–8 participants, 3 claims, ~20 min sessions |
 | Evals + Red Team Study | 🔲 To do | 3 models, 7 red team scenarios |
 | Presentation | 🔲 To do | After evals — 4-part structure above |

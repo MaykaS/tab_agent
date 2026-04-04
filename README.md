@@ -1,5 +1,7 @@
 # Tab Agent — Chrome Extension
 
+**Website:** https://tabagentweb-on16.vercel.app/ · **GitHub:** https://github.com/MaykaS/tab_agent
+
 An agentic Chrome extension that uses on-device AI (Gemini Nano) to intelligently group your open tabs by topic, protect your most-used tabs from being suspended, and let you take one-click actions on entire groups.
 
 No API key required. No data leaves your device. Works for any Chrome user on desktop.
