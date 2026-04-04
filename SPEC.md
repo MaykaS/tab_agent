@@ -4,7 +4,9 @@
 
 Tab Agent is a Chrome extension that uses on-device AI (Gemini Nano) to intelligently group a user's open tabs by topic, protect frequently-used tabs from being suspended, and let the user take one-click actions on entire groups. It requires no API key and works for any Chrome user on desktop.
 
-**Milestone this spec covers:** MVP (completed)
+**Milestone this spec covers:** MVP (completed) + Agentic version (Phase 2 — planned)
+
+> The MVP is the non-agentic baseline. All user actions are manually triggered. The agentic version — built after the user study — makes the Act step autonomous, driven by a learned behavioral model.
 
 ---
 
@@ -39,16 +41,44 @@ Primary user for MVP: the developer/researcher. Secondary users for user study: 
 | F11 | Stats page | Separate page showing: total tabs open, memory saved (estimated), groups count, memory per group, asleep/awake status per group |
 | F12 | Grouping quality rating | Agreement rating form in stats page — user rates each group 1-5 stars, produces an agreement score. Ratings saved to storage for eval use |
 
-### Out of scope for MVP
+### Out of scope for MVP (Phase 1)
 
-- Autonomous actions (no sleeping tabs without user click)
-- Continuous background monitoring loop
+- Autonomous actions — all actions are user-triggered in MVP
+- Continuous background decision loop
+- Per-URL behavioral model (history is collected but not modeled yet)
 - OpenAI / Anthropic API toggle
 - Settings or preferences page
-- Cross-session learned model
 - Chrome Tab Groups API integration (native colored groups)
 - Real per-tab CPU/memory data (requires Chrome Dev channel)
 - Mobile support
+
+---
+
+## Phase 2 Feature Set — Agentic Version
+
+### In scope (to be built after user study)
+
+| # | Feature | Description |
+|---|---------|-------------|
+| A1 | Behavioral model | Per-URL model built from visit history: avg interval, peak hours, peak days, co-activation patterns |
+| A2 | Need scoring | Score each open tab 0–1 for predicted need in next N minutes |
+| A3 | Auto-sleep | Background loop sleeps tabs below need threshold. Never sleeps frequent tabs, active media, or open forms |
+| A4 | Auto-wake (Option B) | When a tab activates, wake slept tabs in same group. Context-triggered, not time-triggered |
+| A5 | Scheduled wake | Detect time-of-day patterns, wake tabs before predicted need window |
+| A6 | Action log | Every autonomous action logged with reason. Visible in stats page. |
+| A7 | Undo | User can undo any autonomous sleep or wake from the action log |
+| A8 | Settings | Sleep threshold, wake sensitivity, per-group opt-out |
+| A9 | Feedback loop | User marks actions correct/incorrect → model improves over time |
+
+### Agentic acceptance criteria
+
+- [ ] Agent sleeps a tab autonomously within 5 minutes of it falling below threshold
+- [ ] Agent never sleeps a tab marked frequent
+- [ ] Agent wakes slept tabs when a tab in the same group is activated
+- [ ] Every autonomous action appears in the action log with a reason
+- [ ] User can undo any autonomous action from the log
+- [ ] Behavioral model correctly predicts tab need with >70% precision (measured in evals)
+- [ ] Settings page allows threshold configuration and per-group opt-out
 
 ---
 
@@ -108,5 +138,5 @@ All of the following are met:
 - Grouping quality depends on Gemini Nano — small model, adequate but not perfect
 - Memory data is estimated (~50MB per tab) — real per-tab data requires Chrome Dev channel
 - No undo for close actions (sleep can be undone with Wake)
-- No autonomous actions — all actions require a user click
+- **No autonomous actions — this is by design in MVP.** The agentic version (Phase 2) adds autonomous sleep/wake.
 - Gemini Nano only supports English, Spanish, and Japanese

@@ -27,11 +27,22 @@ When Chrome suspends a tab, it discards the page from memory. When you revisit i
 
 ## 2. Solution
 
-Tab Agent is a Chrome extension that uses on-device AI (Gemini Nano) to intelligently group open tabs by topic, protect frequently-used tabs from being suspended, and let the user take one-click actions on entire groups.
+Tab Agent is a Chrome extension that uses on-device AI (Gemini Nano) to intelligently group open tabs by topic, learn user behavior over time, and autonomously manage tab memory — sleeping tabs the user doesn't need and waking them when context suggests they will.
 
 > No API key required. No data leaves the device. Free for any Chrome user on desktop.
 
-### The agent loop
+### MVP vs agentic — the core distinction
+
+The MVP and the full agentic version share the same observe → decide → act → remember loop. The critical difference is in the **Act** step:
+
+| Version | Observe | Decide | Act | Remember |
+|---------|---------|--------|-----|----------|
+| MVP (done) | Reads tabs + history | AI groups tabs | **User clicks** Sleep/Wake/Close | Logs visit history |
+| Agentic (next) | Reads tabs + history + context | AI predicts tab need | **Autonomous** Sleep/Wake based on learned patterns | Builds behavioral model per URL |
+
+In the MVP, the agent is an assistant — it organizes, but the user executes. In the agentic version, the agent acts on its own. The user sets the policy once ("manage my tabs") and the agent handles execution.
+
+### The agent loop (MVP)
 
 | Step | What happens |
 |------|-------------|
@@ -39,6 +50,25 @@ Tab Agent is a Chrome extension that uses on-device AI (Gemini Nano) to intellig
 | Decide | Sends tab list to Gemini Nano. Receives back named groups (e.g. "Work", "Research", "Shopping"). Caches result — no re-grouping on reopen. |
 | Act | User clicks Sleep, Wake, or Close on a group. Agent never acts autonomously. |
 | Remember | Background worker logs every tab switch. Tabs visited 3+ times in 24h are marked "frequent" and protected. |
+
+### The agent loop (agentic version)
+
+| Step | What happens |
+|------|-------------|
+| Observe | Reads all open tabs. Monitors which tab just became active. Reads full behavioral history: visit frequency, time-of-day patterns, group membership. |
+| Decide | Scores each tab: "How likely is the user to need this tab in the next N minutes?" Sleep if below threshold. Wake if a related tab just opened (Option B). |
+| Act | **Autonomously** discards low-need tabs. **Autonomously** reloads tabs when a contextually related tab is activated. Notifies user of what it did and why. |
+| Remember | Continuously updates per-URL behavioral model: frequency, recency, time-of-day, co-activation patterns (which tabs are opened together). |
+
+### Why Option B for auto-wake
+
+Two approaches were considered for proactive waking:
+
+**Option A — Time/pattern based:** "You visit Gmail every morning at 9am — wake it at 8:55am." Works for habitual tabs but requires extensive history and risks false positives (waking a tab the user doesn't need wastes memory).
+
+**Option B — Trigger based (chosen):** "You just opened a tab related to X — wake other tabs in the same group." For example: you open a GitHub repo → agent wakes your Stack Overflow tab and your docs tab from the same group. This is context-aware, reactive to what you're doing *right now*, and more reliable than pure time prediction.
+
+> Key design principle: **auto-sleep should be silent and reversible. Auto-wake should be conservative and explainable** — when the agent wakes something, it tells the user why ("Woke 'GitHub Docs' because you opened a related tab").
 
 ---
 
@@ -241,9 +271,9 @@ Report: "Estimated savings shown in UI: X MB. Actual measured savings via Chrome
 
 | Phase | What changes |
 |-------|-------------|
-| Current (MVP) | Single agent, Gemini Nano, vanilla JS, Chrome extension only |
-| Next: Multi-agent | Separate agents for grouping, memory management, and user preference learning. Agents communicate via message passing |
-| Then: Tools / MCP + RAG | MCP server exposes tab state to external tools. RAG over user's browsing history to improve grouping. Connect to calendar, Notion, etc. |
+| Current (MVP) | Single agent, Gemini Nano, vanilla JS. User-triggered actions only. Groups tabs intelligently but does not act autonomously. |
+| Next: Agentic | Same single agent, but Act step becomes autonomous. Agent sleeps/wakes tabs based on learned behavioral model. Background loop runs continuously. User sets policy, agent executes. |
+| Then: Tools / MCP + RAG | MCP server exposes tab state to external tools. RAG over user's browsing history to improve grouping and need prediction. Connect to calendar, Notion, etc. for richer context signals. |
 | Full product | Cross-device sync, team workspaces, API for developers, Chrome Web Store distribution |
 
 ---

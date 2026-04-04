@@ -103,12 +103,61 @@ MVP is complete. All acceptance criteria in SPEC.md are met.
 
 ---
 
-## Post-MVP Backlog
+## Phase 2 — Agentic Version
 
-- Add OpenAI / Anthropic API as optional backend with quality comparison
-- Settings page (threshold configuration, API key entry)
+Build this after the user study is complete. These tasks turn Tab Agent from a manually-triggered assistant into an autonomous agent.
+
+### Block A — Behavioral model
+
+- [ ] **A01** — Create `agent.js` with `buildModel(visitHistory)` → returns `urlModel` object per URL (avgInterval, peakHours, peakDays, coActivations)
+- [ ] **A02** — Add `scoreTab(url, currentTime, urlModel)` → returns need probability 0–1
+- [ ] **A03** — Add `shouldSleep(url, urlModel)` → boolean + reason string
+- [ ] **A04** — Add `shouldWake(activatedUrl, groupMap, urlModel)` → array of URLs to wake
+- [ ] **A05** — Unit test: does model score tabs you actually return to higher than ones you don't?
+- [ ] **A06** — Add `updateUrlModel(url, visitData)` and `getUrlModel(url)` to `storage.js`
+
+### Block B — Auto-sleep
+
+- [ ] **A07** — Add continuous decision loop to `background.js` (setInterval, every 5 minutes)
+- [ ] **A08** — Loop reads all open tabs, scores each via `agent.js`, sleeps tabs below threshold
+- [ ] **A09** — Never sleep guard: skip frequent tabs, tabs with audible audio, tabs with active forms (use `chrome.tabs.get` to check `audible` property)
+- [ ] **A10** — Log every autonomous sleep to `actionLog` in storage with timestamp + reason
+- [ ] **A11** — Test: open 10 tabs, leave some idle, verify agent sleeps the right ones within 10 minutes
+
+### Block C — Auto-wake (Option B)
+
+- [ ] **A12** — In `background.js` `onActivated` listener: when a tab activates, call `shouldWake()` with its URL and current group map
+- [ ] **A13** — If wake targets returned: call `chrome.tabs.reload()` on each slept tab in same group
+- [ ] **A14** — Log every autonomous wake to `actionLog` with reason ("Woke X because you opened a related tab")
+- [ ] **A15** — Test: sleep a group, activate one tab in it, verify siblings wake automatically
+
+### Block D — Scheduled wake
+
+- [ ] **A16** — In `agent.js`, add `getPeakHours(url, visitHistory)` → array of hours with high visit frequency
+- [ ] **A17** — In background loop: check if any slept tab has a peak hour approaching (within 15 min) → wake it
+- [ ] **A18** — Test: manually set visit history to simulate a 9am pattern, verify tab wakes at 8:45am
+
+### Block E — Transparency + control
+
+- [ ] **A19** — Add action log section to stats page: shows last 20 autonomous actions with timestamp, type, reason
+- [ ] **A20** — Add undo button per action log entry: reverses the sleep or wake
+- [ ] **A21** — Create settings page (`settings.html`): sleep threshold slider, wake sensitivity toggle, per-group opt-out checkboxes
+- [ ] **A22** — Wire settings to agent loop: agent respects per-group opt-outs
+- [ ] **A23** — Add feedback buttons to action log: "Good call" / "Wrong call" → saves to model feedback store
+
+### Block F — Eval harness
+
+- [ ] **A24** — Build tab set fixtures: 10 pre-defined tab sets with known "correct" groupings for blind eval
+- [ ] **A25** — Add backend toggle to popup settings: Gemini Nano / Claude Haiku / GPT-4o mini
+- [ ] **A26** — Build eval runner: same tab set → all three models → save results with model label hidden
+- [ ] **A27** — Add precision/recall measurement to stats: "Did the agent sleep the right tabs?" (needs ground truth from user study)
+
+---
+
+## Other Post-MVP Backlog
+
 - Chrome Tab Groups API integration (native colored groups in tab bar)
-- Background re-grouping loop (runs every N minutes)
-- Feed visit frequency as signal into LLM prompt
-- Eval harness: compare Gemini Nano vs Claude vs GPT-4o mini grouping quality
-- Real per-tab memory data (requires Chrome Dev channel or alternative approach)
+- Vercel deployment (landing page + demo — professor requirement)
+- Real per-tab memory data (requires Chrome Dev channel)
+- MCP server exposing tab state to external tools
+- RAG over browsing history to improve grouping
