@@ -1,109 +1,114 @@
-# TASKS.md — Tab Agent MVP (2-Day Sprint)
+# TASKS.md — Tab Agent MVP
 
 ## How to use this file
 
-Work through tasks in order. Check off each box when done. Each task should take 30–90 minutes. Commit to git after each completed task — your commit history becomes your build log.
+Work through tasks in order. Check off each box when done. Commit to git after each block.
 
-```bash
-git add .
-git commit -m "T01 - extension skeleton loads in Chrome"
-```
-
-If you get stuck on a task for more than 90 minutes, skip it and come back — don't let one blocker kill the sprint.
+If you get stuck on a task for more than 90 minutes, skip it and come back.
 
 ---
 
-## Setup (do this first, ~30 min)
+## Setup
 
-- [ ] **S01** — Create repo folder: `mkdir tab-agent && cd tab-agent && git init`
-- [ ] **S02** — Enable Gemini Nano in Chrome: go to `chrome://flags/#prompt-api-for-gemini-nano` → Enabled → restart Chrome
-- [ ] **S03** — Verify Gemini Nano works: open DevTools console on any page, run `await LanguageModel.availability()` — should return `"available"`
-
----
-
-## Day 1 — Get the Loop Working
-
-### Block 1 — Extension skeleton (morning, ~1.5h)
-
-- [ ] **T01** — Create `manifest.json` with name, version, manifest_version 3, permissions for `tabs` and `storage`, background service worker pointing to `background.js`, and popup pointing to `popup.html`
-- [ ] **T02** — Create empty `background.js`, `popup.html`, `popup.js`
-- [ ] **T03** — Load extension unpacked at `chrome://extensions` — verify it appears in toolbar without errors
-- [ ] **T04** — Add a `<h1>Tab Agent</h1>` to `popup.html` and confirm popup opens when you click the extension icon
-
-### Block 2 — Read open tabs (late morning, ~1h)
-
-- [ ] **T05** — In `popup.js`, call `chrome.tabs.query({})` and `console.log` the full result — open popup, inspect DevTools, verify you see your open tabs
-- [ ] **T06** — Map the result down to just `{ id, title, url, lastAccessed }` per tab — log the cleaned list
-- [ ] **T07** — Display tab count in the popup HTML: "Analyzing 12 tabs..."
-
-### Block 3 — AI grouping call (afternoon, ~2h)
-
-- [ ] **T08** — In `popup.js`, check `await LanguageModel.availability()` — if not `"available"`, show an error message in the popup and stop
-- [ ] **T09** — Build the prompt string: serialize the cleaned tab list as JSON and insert into the prompt template from AGENTS.md
-- [ ] **T10** — Call `await LanguageModel.prompt(yourPrompt)` and `console.log` the raw response
-- [ ] **T11** — Parse the JSON response — handle parse errors gracefully (show "Grouping failed, try again" rather than crashing)
-- [ ] **T12** — `console.log` the parsed groups object — verify group names and tab ID arrays look sensible
-
-### Block 4 — Render groups in popup (late afternoon, ~1.5h)
-
-- [ ] **T13** — For each group in the parsed result, render a section in the popup: group name as a heading, tab titles as a list underneath
-- [ ] **T14** — Add basic CSS: readable font, some padding, groups visually separated
-- [ ] **T15** — End-to-end test: open 10+ tabs on different topics, open popup, verify groups make sense
+- [x] **S01** — Create repo folder and git init
+- [x] **S02** — Enable Gemini Nano: `chrome://flags/#prompt-api-for-gemini-nano` → Enabled + `chrome://flags/#optimization-guide-on-device-model` → Enabled BypassPerfRequirement → Relaunch
+- [x] **S03** — Download model: run `await LanguageModel.create()` in DevTools console, wait for download
+- [x] **S04** — Verify: run `await LanguageModel.availability()` → should return `"available"`
 
 ---
 
-## Day 2 — Make It Useful
+## Block 1 — Extension skeleton
 
-### Block 5 — Sleep and close actions (morning, ~1.5h)
+- [x] **T01** — Create `manifest.json` (Manifest V3, tabs + storage permissions, background service worker, popup)
+- [x] **T02** — Create empty `background.js`, `popup.html`, `popup.js`, `storage.js`
+- [x] **T03** — Load unpacked at `chrome://extensions` — verify no errors
+- [x] **T04** — Confirm popup opens when clicking the extension icon
 
-- [ ] **T16** — Add a "Sleep group" button to each group in the popup
-- [ ] **T17** — On click: call `chrome.tabs.discard(tabId)` for each tab in that group, then remove the group from the UI
-- [ ] **T18** — Add a "Close group" button to each group
-- [ ] **T19** — On click: call `chrome.tabs.remove([...tabIds])` for all tabs in that group, then remove the group from the UI
-- [ ] **T20** — Test both actions: verify tabs are actually discarded/closed in Chrome
+## Block 2 — Observe tabs
 
-### Block 6 — Tab history storage (late morning, ~1h)
+- [x] **T05** — Call `chrome.tabs.query({})` in `popup.js`, log result
+- [x] **T06** — Map to `{ id, title, url }`, filter out Chrome-internal pages
+- [x] **T07** — Show tab count in popup while loading
 
-- [ ] **T21** — Create `storage.js` with a `writeVisit(url)` function that appends `{ url, timestamp: Date.now() }` to the `visits` array in `chrome.storage.local`
-- [ ] **T22** — Add a `pruneOldVisits()` call inside `writeVisit` that removes entries older than 7 days
-- [ ] **T23** — In `background.js`, listen to `chrome.tabs.onActivated` — on each activation, get the active tab's URL and call `writeVisit(url)`
-- [ ] **T24** — Verify storage is working: open several tabs, switch between them, then run `chrome.storage.local.get('visits', console.log)` in DevTools — confirm entries are accumulating
+## Block 3 — AI grouping
 
-### Block 7 — Frequent tab protection (afternoon, ~1.5h)
+- [x] **T08** — Check `LanguageModel.availability()` — show error if not `"available"`
+- [x] **T09** — Build prompt with tab list as JSON
+- [x] **T10** — Call `LanguageModel.prompt()`, log raw response
+- [x] **T11** — Parse JSON response, handle parse errors gracefully
+- [x] **T12** — Verify parsed groups look sensible in console
 
-- [ ] **T25** — In `storage.js`, add `getFrequentUrls(thresholdCount, windowHours)` — returns a Set of URLs visited `thresholdCount` or more times within `windowHours`
-- [ ] **T26** — In `popup.js`, call `getFrequentUrls(3, 24)` when the popup opens, before rendering
-- [ ] **T27** — In the group rendering, check each tab's URL against the frequent set — if frequent, add a small "frequent" badge next to the tab title
-- [ ] **T28** — In the sleep action handler, skip `chrome.tabs.discard()` for tabs whose URL is in the frequent set
-- [ ] **T29** — In the close action handler, skip `chrome.tabs.remove()` for frequent tabs
-- [ ] **T30** — Test: manually add fake visit history for a URL via DevTools, verify the badge appears and the tab survives a "sleep group" action
+## Block 4 — Render groups
 
-### Block 8 — Polish and finalize (late afternoon, ~1h)
+- [x] **T13** — Render group name + tab titles in popup
+- [x] **T14** — Add CSS: readable layout, groups visually separated
+- [x] **T15** — End-to-end test: 10+ tabs → popup → groups appear
 
-- [ ] **T31** — Add a loading spinner or "Grouping your tabs..." message while the Gemini Nano call is in-flight
-- [ ] **T32** — Add a "Regroup" button that re-runs the full observe → decide → render cycle
-- [ ] **T33** — Test on a fresh Chrome profile (no visit history) — verify graceful behavior with zero history
-- [ ] **T34** — Test with Gemini Nano flag disabled — verify error message shows cleanly
-- [ ] **T35** — Final install test: delete and reload the extension from scratch, run through the full flow once
-- [ ] **T36** — Record a short demo (Loom or QuickTime): install → open 10+ tabs → open popup → show groups → sleep one group → show frequent badge
+## Block 5 — Sleep and close actions
+
+- [x] **T16** — Add Sleep button per group
+- [x] **T17** — Sleep: call `chrome.tabs.discard()` — group stays visible, turns dimmed, Wake button appears
+- [x] **T18** — Add Wake button (hidden by default)
+- [x] **T19** — Wake: call `chrome.tabs.reload()` on slept tabs, restore group to normal state
+- [x] **T20** — Add Close button per group — closes tabs, removes group from UI and cache
+
+## Block 6 — Tab history storage
+
+- [x] **T21** — `storage.js`: `writeVisit(url)` appends `{url, timestamp}` to `visits`
+- [x] **T22** — `pruneOldVisits()` removes entries older than 7 days
+- [x] **T23** — `background.js`: listen to `chrome.tabs.onActivated`, call `writeVisit(url)`
+- [x] **T24** — Verify via DevTools: `chrome.storage.local.get('visits', console.log)`
+
+## Block 7 — Frequent tab protection
+
+- [x] **T25** — `storage.js`: `getFrequentUrls(threshold, windowHours)` returns Set of URLs
+- [x] **T26** — Call `getFrequentUrls(3, 24)` on popup open
+- [x] **T27** — Render "frequent" badge on qualifying tabs
+- [x] **T28** — Sleep: confirm dialog before sleeping frequent tabs
+- [x] **T29** — Close: confirm dialog before closing frequent tabs; partial close keeps frequent tabs visible in group
+
+## Block 8 — Persistent groups + state
+
+- [x] **T30** — Cache groups to `chrome.storage.local` after AI call
+- [x] **T31** — On popup open: load from cache if available, skip AI call
+- [x] **T32** — Persist asleep state to storage — Wake button shown correctly on reopen
+- [x] **T33** — Update cache when group is closed — group does not reappear on reopen
+- [x] **T34** — Use URL matching (not cached IDs) for close/sleep — handles stale tab IDs
+
+## Block 9 — Stats page
+
+- [x] **T35** — Create `stats.html` + `stats.js`
+- [x] **T36** — Add Stats button to popup header — opens stats in new tab
+- [x] **T37** — Stats: summary section (tabs open, memory saved, group count)
+- [x] **T38** — Stats: memory per group table with awake/asleep status
+- [x] **T39** — Stats: auto-refresh every 5 seconds using real open tab count
+- [x] **T40** — Stats: agreement rating form — rate each group 1-5 stars, save to storage
+
+## Block 10 — Polish and fixes
+
+- [x] **T41** — Add loading spinner while Gemini Nano is thinking
+- [x] **T42** — Add Regroup button — forces fresh AI call, clears cache
+- [x] **T43** — Fix: language warning suppressed via `expectedOutputLanguages: ["en"]`
+- [x] **T44** — Fix: close on slept groups works correctly (URL-based matching)
+- [x] **T45** — Fix: stats tab count reflects real open tabs not cached group count
+- [x] **T46** — Test: fresh Chrome profile with no visit history
+- [x] **T47** — Test: Gemini Nano unavailable → error message shows cleanly
+- [x] **T48** — Record demo video: install → group → sleep → wake → close → stats
 
 ---
 
 ## Done Definition
 
-MVP is complete when:
-- All T01–T36 are checked off
-- All acceptance criteria in SPEC.md are met
-- The demo recording exists
-- Everything is committed and pushed to git
+MVP is complete. All acceptance criteria in SPEC.md are met.
 
 ---
 
-## Post-MVP Backlog (don't touch during the sprint)
+## Post-MVP Backlog
 
-- Add OpenAI / Anthropic API as optional backend
+- Add OpenAI / Anthropic API as optional backend with quality comparison
 - Settings page (threshold configuration, API key entry)
-- Chrome Tab Groups API integration (native colored groups in the tab bar)
+- Chrome Tab Groups API integration (native colored groups in tab bar)
 - Background re-grouping loop (runs every N minutes)
-- Feed visit frequency as a signal into the LLM prompt
+- Feed visit frequency as signal into LLM prompt
 - Eval harness: compare Gemini Nano vs Claude vs GPT-4o mini grouping quality
+- Real per-tab memory data (requires Chrome Dev channel or alternative approach)
