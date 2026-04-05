@@ -207,7 +207,7 @@ async function renderSubmitSection() {
 
     try {
       const data = await getAllDataForExport();
-      const res = await fetch("https://tabagentweb-on16.vercel.app/api/collect", {
+      const res = await fetch("https://tab-agent-web.vercel.app/api/collect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
