@@ -57,6 +57,9 @@ async function renderAll() {
   // Memory per group (reuse realTabIds already declared above)
   await renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls);
 
+  // Research data submission
+  await renderSubmitSection();
+
   // Agreement rating form
   renderRatingForm(groups, tabMap);
 }
@@ -163,6 +166,67 @@ async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
 
   wrap.innerHTML = html;
   document.getElementById("no-data") && (document.getElementById("no-data").style.display = "none");
+}
+
+// ─── Research data submission ────────────────────────────────────────────────
+
+async function renderSubmitSection() {
+  const wrap = document.getElementById("submit-wrap");
+  if (!wrap) return;
+
+  wrap.innerHTML = `
+    <div style="margin-top:8px;">
+      <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:14px;line-height:1.6;">
+        Submitting your data helps validate the research claims for this project.
+        Only usage statistics are sent — no tab URLs or personal information.
+      </p>
+      <div id="submit-preview" style="background:var(--color-background-secondary);border:1px solid var(--color-border-tertiary);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--color-text-secondary);margin-bottom:14px;line-height:1.8;">
+        Loading data preview...
+      </div>
+      <button id="submit-btn" style="padding:8px 20px;background:#1a6fa3;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;">
+        Submit to study
+      </button>
+      <span id="submit-status" style="font-size:12px;margin-left:12px;color:var(--color-text-secondary);"></span>
+    </div>
+  `;
+
+  // Load preview
+  const exportData = await getAllDataForExport();
+  document.getElementById("submit-preview").innerHTML = `
+    Sessions logged: <strong>${exportData.sessionLog.length}</strong> &nbsp;·&nbsp;
+    Rating sessions: <strong>${exportData.ratingHistory.length}</strong> &nbsp;·&nbsp;
+    Memory saved: <strong>${exportData.memorySaved.toFixed(0)} MB est.</strong> &nbsp;·&nbsp;
+    Tab visits tracked: <strong>${exportData.visitCount}</strong>
+  `;
+
+  document.getElementById("submit-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("submit-btn");
+    const status = document.getElementById("submit-status");
+    btn.disabled = true;
+    btn.textContent = "Submitting...";
+
+    try {
+      const data = await getAllDataForExport();
+      const res = await fetch("https://tabagentweb-on16.vercel.app/api/collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+
+      if (res.ok) {
+        btn.textContent = "Submitted!";
+        btn.style.background = "#2e7d32";
+        status.textContent = "Thank you — your data has been recorded.";
+      } else {
+        throw new Error("Server error");
+      }
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = "Submit to study";
+      status.textContent = "Submission failed — try again.";
+      status.style.color = "#c0392b";
+    }
+  });
 }
 
 // ─── Agreement rating form ────────────────────────────────────────────────────

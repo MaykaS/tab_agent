@@ -60,6 +60,15 @@ async function runAgent(forceRegroup) {
     for (const tab of tabs) tabMap[tab.id] = tab;
 
     await saveCachedState(groups, tabMap, {});
+    // Log grouping event
+    await logEvent("grouped", {
+      tabCount: tabs.length,
+      groupCount: groups.length,
+      frequentTabCount: frequentUrls.size,
+      groupNames: groups.map(g => g.name),
+      forced: forceRegroup
+    });
+
     renderGroups(groups, tabMap, frequentUrls, {});
 
   } catch (err) {
@@ -339,6 +348,14 @@ async function sleepGroup(group, tabMap, frequentUrls, groupIndex, groupEl, slee
     const data = await chrome.storage.local.get(STORAGE_SAVED_KEY);
     const prev = data[STORAGE_SAVED_KEY] || 0;
     await chrome.storage.local.set({ [STORAGE_SAVED_KEY]: prev + savedMB });
+
+    // Log sleep event
+    await logEvent("slept", {
+      tabCount: toSleep.length,
+      frequentTabCount: group.tabIds.length - toSleep.length,
+      groupName: group.name,
+      estimatedMBSaved: savedMB
+    });
   } catch(e) { /* silently skip */ }
 
   // Update UI
@@ -364,6 +381,9 @@ async function wakeGroup(groupIndex, groupEl, sleepBtn, wakeBtn, statusBadge, li
   // Clear persisted asleep state
   delete asleepGroups[groupIndex];
   await updateAsleepState(asleepGroups);
+
+  // Log wake event
+  await logEvent("woken", { tabCount: tabIds.length, groupIndex });
 
   // Restore UI
   groupEl.classList.remove("group-asleep");
@@ -423,6 +443,13 @@ async function closeGroup(group, tabMap, frequentUrls, groupEl) {
         try { await chrome.tabs.remove(tabId); } catch (e2) { /* already gone */ }
       }
     }
+
+    // Log close event
+    await logEvent("closed", {
+      tabCount: idsToClose.length,
+      groupName: group.name,
+      includedFrequent: closeAll && frequentGroupUrls.length > 0
+    });
   }
 
   if (closeAll) {

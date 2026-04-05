@@ -1,7 +1,8 @@
-// storage.js — tab visit history helpers
+// storage.js — tab visit history helpers + session event logging
 // Used by both background.js and popup.js
 
 const STORAGE_KEY = "visits";
+const SESSION_LOG_KEY = "sessionLog";
 const PRUNE_AFTER_DAYS = 7;
 
 /**
@@ -22,7 +23,6 @@ async function writeVisit(url) {
 
 /**
  * Remove visits older than PRUNE_AFTER_DAYS days.
- * Called automatically inside writeVisit.
  */
 function pruneOldVisits(visits) {
   const cutoff = Date.now() - PRUNE_AFTER_DAYS * 24 * 60 * 60 * 1000;
@@ -32,8 +32,6 @@ function pruneOldVisits(visits) {
 /**
  * Return a Set of URLs visited at least `threshold` times
  * within the last `windowHours` hours.
- *
- * Used to identify "frequent" tabs that should be protected.
  */
 async function getFrequentUrls(threshold = 3, windowHours = 24) {
   const data = await chrome.storage.local.get(STORAGE_KEY);
@@ -53,4 +51,43 @@ async function getFrequentUrls(threshold = 3, windowHours = 24) {
   }
 
   return frequent;
+}
+
+/**
+ * Log a session event for research data collection.
+ * Events: grouped, slept, woken, closed, regrouped
+ */
+async function logEvent(event, details = {}) {
+  const data = await chrome.storage.local.get(SESSION_LOG_KEY);
+  const log = data[SESSION_LOG_KEY] || [];
+
+  log.push({
+    timestamp: Date.now(),
+    event,
+    ...details
+  });
+
+  await chrome.storage.local.set({ [SESSION_LOG_KEY]: log });
+}
+
+/**
+ * Get the full session log for export.
+ */
+async function getSessionLog() {
+  const data = await chrome.storage.local.get(SESSION_LOG_KEY);
+  return data[SESSION_LOG_KEY] || [];
+}
+
+/**
+ * Get all stored data for export to research study.
+ */
+async function getAllDataForExport() {
+  const data = await chrome.storage.local.get(null);
+  return {
+    exportedAt: new Date().toISOString(),
+    sessionLog: data[SESSION_LOG_KEY] || [],
+    ratingHistory: data.ratingHistory || [],
+    memorySaved: data.memorySaved || 0,
+    visitCount: (data[STORAGE_KEY] || []).length,
+  };
 }
