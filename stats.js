@@ -1,18 +1,19 @@
-// stats.js — memory measurement and grouping quality rating
+// stats.js - memory measurement and grouping quality rating
 
 const STORAGE_GROUPS_KEY = "cachedGroups";
 const STORAGE_ASLEEP_KEY = "asleepGroups";
 const STORAGE_SAVED_KEY  = "memorySaved";
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+// Init
 
 document.addEventListener("DOMContentLoaded", async () => {
   await renderAll();
-  // Refresh every 5 seconds — also retries renderAll if no cache was found yet
+
+  // Refresh every 5 seconds; if groups are not cached yet, keep retrying renderAll.
   setInterval(async () => {
     const data = await chrome.storage.local.get(STORAGE_GROUPS_KEY);
     if (!data[STORAGE_GROUPS_KEY]) {
-      await renderAll(); // keep retrying until popup has run
+      await renderAll();
     } else {
       await refreshMemory();
     }
@@ -26,18 +27,18 @@ async function renderAll() {
     STORAGE_SAVED_KEY
   ]);
 
-  const cached     = data[STORAGE_GROUPS_KEY] || null;
-  const asleep     = data[STORAGE_ASLEEP_KEY] || {};
-  const savedMB    = data[STORAGE_SAVED_KEY]  || 0;
+  const cached = data[STORAGE_GROUPS_KEY] || null;
+  const asleep = data[STORAGE_ASLEEP_KEY] || {};
+  const savedMB = data[STORAGE_SAVED_KEY] || 0;
 
   document.getElementById("memory-saved").textContent = savedMB.toFixed(1);
 
   if (!cached || !cached.groups) {
-    document.getElementById("tab-count").textContent   = "—";
-    document.getElementById("group-count").textContent = "—";
-    document.getElementById("total-memory").textContent = "—";
+    document.getElementById("tab-count").textContent = "-";
+    document.getElementById("group-count").textContent = "-";
+    document.getElementById("total-memory").textContent = "-";
     document.getElementById("no-data").textContent =
-      "No groups cached yet — click the Tab Agent icon in your toolbar to group your tabs first, then come back here.";
+      "No groups cached yet - click the Tab Agent icon in your toolbar to group your tabs first, then come back here.";
     document.getElementById("no-data").style.display = "block";
     return;
   }
@@ -51,26 +52,27 @@ async function renderAll() {
   const groupUrls = groups.flatMap(g => g.tabIds.map(id => tabMap[id]?.url).filter(Boolean));
   const openCount = groupUrls.filter(url => realUrls.has(url)).length;
 
-  document.getElementById("tab-count").textContent   = openCount;
+  document.getElementById("tab-count").textContent = openCount;
   document.getElementById("group-count").textContent = groups.length;
 
-  // Memory per group (reuse realTabIds already declared above)
   await renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls);
-
-  // Research data submission
   await renderSubmitSection();
-
-  // Agreement rating form
   renderRatingForm(groups, tabMap);
 }
 
-// ─── Memory ──────────────────────────────────────────────────────────────────
+// Memory
 
 async function refreshMemory() {
-  const data = await chrome.storage.local.get([STORAGE_GROUPS_KEY, STORAGE_ASLEEP_KEY, STORAGE_SAVED_KEY]);
+  const data = await chrome.storage.local.get([
+    STORAGE_GROUPS_KEY,
+    STORAGE_ASLEEP_KEY,
+    STORAGE_SAVED_KEY
+  ]);
+
   const cached = data[STORAGE_GROUPS_KEY] || null;
   const asleep = data[STORAGE_ASLEEP_KEY] || {};
   const savedMB = data[STORAGE_SAVED_KEY] || 0;
+
   if (!cached) return;
 
   const openTabs = await chrome.tabs.query({});
@@ -78,9 +80,8 @@ async function refreshMemory() {
   const realUrls = new Set(openTabs.map(t => t.url).filter(Boolean));
   const groupUrls = cached.groups.flatMap(g => g.tabIds.map(id => cached.tabMap[id]?.url).filter(Boolean));
 
-  // Update all summary numbers
   const openCount = groupUrls.filter(url => realUrls.has(url)).length;
-  document.getElementById("tab-count").textContent   = openCount;
+  document.getElementById("tab-count").textContent = openCount;
   document.getElementById("group-count").textContent = cached.groups.length;
   document.getElementById("memory-saved").textContent = savedMB.toFixed(1);
 
@@ -90,24 +91,19 @@ async function refreshMemory() {
 async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
   const wrap = document.getElementById("group-table-wrap");
 
-  // chrome.processes requires Chrome Dev channel — not available on stable.
-  // We use tab count as a proxy for relative memory weight instead.
+  // chrome.processes requires Chrome Dev channel. On stable, use tab count as a proxy.
   const hasRealData = false;
   const memoryByTabId = {};
 
-  // Calculate max memory for bar scaling
   const groupMemories = groups.map(group => {
-    const mem = group.tabIds.reduce((sum, id) => sum + (memoryByTabId[id] || 0), 0);
-    return mem;
+    return group.tabIds.reduce((sum, id) => sum + (memoryByTabId[id] || 0), 0);
   });
   const maxMem = Math.max(...groupMemories, 1);
 
-  // Total memory
   const totalMem = groupMemories.reduce((a, b) => a + b, 0);
   document.getElementById("total-memory").textContent =
-    hasRealData ? totalMem.toFixed(1) : "—";
+    hasRealData ? totalMem.toFixed(1) : "-";
 
-  // Build table
   let html = `
     <table>
       <thead>
@@ -132,7 +128,7 @@ async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
     const memDisplay = hasRealData
       ? `<div class="mem-bar-wrap">
            <div class="mem-bar-bg">
-             <div class="mem-bar-fill ${isAsleep ? 'asleep' : ''}" style="width:${pct}%"></div>
+             <div class="mem-bar-fill ${isAsleep ? "asleep" : ""}" style="width:${pct}%"></div>
            </div>
            <span class="mem-label">${mem.toFixed(1)} MB</span>
          </div>`
@@ -142,7 +138,7 @@ async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
             return url && realTabIds ? realUrls && realUrls.has(url) : true;
           }).length;
           const estMB = isAsleep ? 0 : openInGroup * 50;
-          return `<span style="font-size:12px;color:#888">${openInGroup} tab${openInGroup !== 1 ? 's' : ''} · ~${estMB} MB est.</span>`;
+          return `<span style="font-size:12px;color:#888">${openInGroup} tab${openInGroup !== 1 ? "s" : ""} · ~${estMB} MB est.</span>`;
         })();
 
     html += `
@@ -159,16 +155,18 @@ async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
 
   if (!hasRealData) {
     html += `<p style="font-size:11px;color:#aaa;margin-top:10px;">
-      Memory shown is estimated at ~50MB per tab — actual usage varies by page.
+      Memory shown is estimated at ~50MB per tab - actual usage varies by page.
       Real per-tab data requires Chrome Dev channel.
     </p>`;
   }
 
   wrap.innerHTML = html;
-  document.getElementById("no-data") && (document.getElementById("no-data").style.display = "none");
+  if (document.getElementById("no-data")) {
+    document.getElementById("no-data").style.display = "none";
+  }
 }
 
-// ─── Research data submission ────────────────────────────────────────────────
+// Research data submission
 
 async function renderSubmitSection() {
   const wrap = document.getElementById("submit-wrap");
@@ -178,7 +176,7 @@ async function renderSubmitSection() {
     <div style="margin-top:8px;">
       <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:14px;line-height:1.6;">
         Submitting your data helps validate the research claims for this project.
-        Only usage statistics are sent — no tab URLs or personal information.
+        Only usage statistics are sent - no tab URLs or personal information.
       </p>
       <div id="submit-preview" style="background:var(--color-background-secondary);border:1px solid var(--color-border-tertiary);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--color-text-secondary);margin-bottom:14px;line-height:1.8;">
         Loading data preview...
@@ -190,7 +188,6 @@ async function renderSubmitSection() {
     </div>
   `;
 
-  // Load preview
   const exportData = await getAllDataForExport();
   document.getElementById("submit-preview").innerHTML = `
     Sessions logged: <strong>${exportData.sessionLog.length}</strong> &nbsp;·&nbsp;
@@ -204,6 +201,9 @@ async function renderSubmitSection() {
     const status = document.getElementById("submit-status");
     btn.disabled = true;
     btn.textContent = "Submitting...";
+    btn.style.background = "";
+    status.textContent = "";
+    status.style.color = "";
 
     try {
       const data = await getAllDataForExport();
@@ -216,32 +216,35 @@ async function renderSubmitSection() {
       if (res.ok) {
         btn.textContent = "Submitted!";
         btn.style.background = "#2e7d32";
-        status.textContent = "Thank you — your data has been recorded.";
+        status.textContent = "Thank you - your data has been recorded.";
       } else {
-        throw new Error("Server error");
+        const responseText = await res.text();
+        throw new Error(`Server error ${res.status}: ${responseText || res.statusText}`);
       }
     } catch (e) {
       btn.disabled = false;
       btn.textContent = "Submit to study";
-      status.textContent = "Submission failed — try again.";
+      status.textContent = `Submission failed: ${e.message}`;
       status.style.color = "#c0392b";
+      console.error("Tab Agent submit failed:", e);
     }
   });
 }
 
-// ─── Agreement rating form ────────────────────────────────────────────────────
+// Agreement rating form
 
 function renderRatingForm(groups, tabMap) {
   const form = document.getElementById("rating-form");
   const noMsg = document.getElementById("no-groups-msg");
   if (noMsg) noMsg.remove();
 
+  form.innerHTML = "";
   const ratings = {};
 
   groups.forEach((group, i) => {
     const tabTitles = group.tabIds
       .map(id => tabMap[id]?.title || "Unknown tab")
-      .slice(0, 5) // show max 5 tab titles
+      .slice(0, 5)
       .join(", ");
     const more = group.tabIds.length > 5 ? ` +${group.tabIds.length - 5} more` : "";
 
@@ -252,9 +255,9 @@ function renderRatingForm(groups, tabMap) {
       <div class="group-rating-name">${escapeHtml(group.name)}</div>
       <div class="rating-tabs">${escapeHtml(tabTitles)}${more}</div>
       <div class="stars" id="stars-${i}">
-        ${[1,2,3,4,5].map(n => `
+        ${[1, 2, 3, 4, 5].map(n => `
           <div class="star" data-group="${i}" data-val="${n}" title="${ratingLabel(n)}">
-            ${n <= 2 ? '✗' : n === 3 ? '~' : '✓'}
+            ${n <= 2 ? "✗" : n === 3 ? "~" : "✓"}
           </div>
         `).join("")}
       </div>
@@ -263,27 +266,24 @@ function renderRatingForm(groups, tabMap) {
 
     form.appendChild(block);
 
-    // Wire up star clicks
     block.querySelectorAll(".star").forEach(star => {
       star.addEventListener("click", () => {
-        const g = parseInt(star.dataset.group);
-        const v = parseInt(star.dataset.val);
+        const g = parseInt(star.dataset.group, 10);
+        const v = parseInt(star.dataset.val, 10);
         ratings[g] = v;
 
-        // Highlight selected stars
         block.querySelectorAll(".star").forEach(s => {
-          s.classList.toggle("selected", parseInt(s.dataset.val) <= v);
+          s.classList.toggle("selected", parseInt(s.dataset.val, 10) <= v);
         });
 
         document.getElementById(`rating-label-${g}`).textContent =
-          `${v}/5 — ${ratingLabel(v)}`;
+          `${v}/5 - ${ratingLabel(v)}`;
 
         updateScore(ratings, groups.length);
       });
     });
   });
 
-  // Submit button
   const btnRow = document.createElement("div");
   btnRow.style.marginTop = "16px";
   btnRow.innerHTML = `
@@ -319,19 +319,20 @@ function updateScore(ratings, total) {
   result.innerHTML = `
     Agreement score: <strong>${pct}%</strong> (avg ${avg.toFixed(1)}/5 across ${total} groups)
     <br><span style="font-size:12px;font-weight:400;color:#555;">
-    ${pct >= 80 ? "Strong agreement — groupings match your mental model well" :
-      pct >= 60 ? "Moderate agreement — some groups made sense, some didn't" :
-      "Low agreement — groupings need improvement"}
+    ${pct >= 80 ? "Strong agreement - groupings match your mental model well" :
+      pct >= 60 ? "Moderate agreement - some groups made sense, some did not" :
+      "Low agreement - groupings need improvement"}
     </span>
   `;
 }
 
 async function saveRatings(ratings, groups) {
+  const values = Object.values(ratings);
   const entry = {
     timestamp: Date.now(),
     groupCount: groups.length,
     ratings,
-    avgScore: Object.values(ratings).reduce((a, b) => a + b, 0) / Object.values(ratings).length
+    avgScore: values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0
   };
 
   const data = await chrome.storage.local.get("ratingHistory");
@@ -348,12 +349,12 @@ async function saveRatings(ratings, groups) {
   }, 2000);
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 function ratingLabel(n) {
   return ["", "Completely wrong", "Mostly wrong", "Partially right", "Mostly right", "Perfect"][n];
 }
 
 function escapeHtml(str) {
-  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
