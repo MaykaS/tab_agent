@@ -1,25 +1,24 @@
-# Tab Agent — Chrome Extension
+# Tab Agent - Chrome Extension
 
-**Website:** https://tabagentweb-on16.vercel.app/ · **GitHub:** https://github.com/MaykaS/tab_agent
+**Website:** https://tab-agent-web.vercel.app/ · **GitHub:** https://github.com/MaykaS/tab_agent
 
 An agentic Chrome extension that uses on-device AI (Gemini Nano) to intelligently group your open tabs by topic, protect your most-used tabs from being suspended, and let you take one-click actions on entire groups.
 
-No API key required. No data leaves your device. Works for any Chrome user on desktop.
+No API key required. Gemini Nano runs locally in Chrome. Study submissions are anonymous and only sent when the user explicitly clicks submit in the Stats page.
 
 ---
 
 ## What it does
 
-- Reads all your open tabs and sends them to Gemini Nano (runs locally in your browser)
-- Groups them by topic using AI — e.g. "Python debugging", "Research papers", "Shopping"
-- Shows the groups in a popup with the tab titles under each group
-- **Remembers your groups** — closing and reopening the popup is instant, no re-grouping. Hit "Regroup" when you want a fresh analysis
-- Lets you **sleep** a group (suspends tabs to free memory) or **close** a group with one click
-- Slept groups **stay visible** in the popup with a Wake button — click Wake to reload all tabs in that group
-- Tracks which tabs you visit frequently and shows a **"frequent" badge** on those tabs
-- If you try to sleep or close a group with frequent tabs, it **asks you to confirm** before acting on them
-- If you cancel closing a mixed group, only the non-frequent tabs close — frequent tabs stay open and visible in the group
-- Learns from your behavior over time via local visit history
+- Reads all your open tabs and sends them to Gemini Nano running locally in Chrome
+- Groups tabs by topic, for example "Research", "Planning", or "Web Development"
+- Caches groups so reopening the popup is instant
+- Lets you sleep, wake, or close groups
+- Protects frequently visited tabs with a visible badge and confirmation prompts
+- Tracks local visit history for frequent-tab detection
+- Includes a Stats page with estimated memory, grouping ratings, and study submission
+- Auto-generates an anonymous participant ID for study submissions
+- Sends a richer study snapshot with group counts, asleep state, rating summary, per-group details, and three self-report questions
 
 ---
 
@@ -31,190 +30,162 @@ No API key required. No data leaves your device. Works for any Chrome user on de
 | Extension framework | Chrome Manifest V3 |
 | Language | Vanilla JavaScript |
 | Storage | `chrome.storage.local` |
-| UI | HTML + CSS in popup |
+| UI | HTML + CSS |
+| Study backend | Next.js API + Neon Postgres |
 
 ---
 
 ## How to enable Gemini Nano
 
-Gemini Nano is built into Chrome but requires a one-time setup. Do this before running the extension.
+Gemini Nano requires a one-time Chrome setup.
 
-### Step 1 — Enable the flags
+### Step 1 - Enable the flags
 
-Open Chrome and go to each of these URLs. Set the value shown.
+Open these pages in Chrome and enable the listed values:
 
-**Flag 1:**
+**Flag 1**
 ```
 chrome://flags/#prompt-api-for-gemini-nano
 ```
 Set to: **Enabled**
 
-**Flag 2:**
+**Flag 2**
 ```
 chrome://flags/#optimization-guide-on-device-model
 ```
 Set to: **Enabled BypassPerfRequirement**
 
-### Step 2 — Relaunch Chrome
+### Step 2 - Relaunch Chrome
 
-Click the **Relaunch** button that appears at the bottom of the flags page. Don't just close and reopen — use the Relaunch button so both flags save together.
+Use the **Relaunch** button from the flags page.
 
-### Step 3 — Download the model
+### Step 3 - Download the model
 
-Open any page in Chrome, open DevTools (F12 → Console tab), and run:
+Open DevTools on any page and run:
 
 ```js
 await LanguageModel.create()
 ```
 
-This triggers Chrome to download the Gemini Nano model in the background. It's a few GB — give it 5–10 minutes depending on your connection.
+### Step 4 - Verify it worked
 
-### Step 4 — Verify it worked
-
-Once the download finishes, run:
+Run:
 
 ```js
 await LanguageModel.availability()
 ```
 
-It should return `"available"`. If it still says `"downloadable"`, wait a few more minutes and try again.
-
-> Note: You may see a warning about output language in the DevTools console — this is harmless and won't affect functionality.
+It should return `"available"`.
 
 ---
 
 ## How to install the extension
 
-1. Clone this repo:
+1. Clone this repo
    ```bash
-   git clone https://github.com/YOUR_USERNAME/tab-agent.git
-   cd tab-agent
+   git clone https://github.com/MaykaS/tab_agent.git
+   cd tab_agent
    ```
+2. Open `chrome://extensions`
+3. Enable **Developer mode**
+4. Click **Load unpacked**
+5. Select the project folder
+6. Open the popup from the toolbar
 
-2. Open Chrome and go to:
-   ```
-   chrome://extensions
-   ```
+After every change:
 
-3. Toggle **Developer mode** on (top right corner)
-
-4. Click **"Load unpacked"** and select the `tab-agent/` folder
-
-5. The extension appears in your Chrome toolbar — click it to open the popup
-
-> Every time you change a file, go back to `chrome://extensions` and click the refresh icon on the Tab Agent card. Then close and reopen the popup.
+1. Reload the extension in `chrome://extensions`
+2. Close and reopen the popup or Stats page
 
 ---
 
 ## File structure
 
-```
-tab-agent/
-├── README.md         ← you are here
-├── SPEC.md           ← product specification (what we're building and why)
-├── AGENTS.md         ← agent design (the observe → decide → act loop)
-├── TASKS.md          ← build checklist (36 tasks across the 2-day MVP sprint)
-├── manifest.json     ← Chrome extension entry point
-├── background.js     ← silent background service worker
-├── popup.html        ← UI that appears when you click the extension icon
-├── popup.js          ← agent brain (observe, call AI, render, act)
-└── storage.js        ← tab visit history helpers
+```text
+tab agent/
+|-- README.md
+|-- SPEC.md
+|-- AGENTS.md
+|-- TASKS.md
+|-- manifest.json
+|-- background.js
+|-- popup.html
+|-- popup.js
+|-- stats.html
+|-- stats.js
+`-- storage.js
 ```
 
 ### What each file does
 
 **`manifest.json`**
-The ID card of the extension. Chrome reads this first and learns everything — the extension name, what permissions it needs (tabs, storage), which file is the background worker, and which file is the popup. Required in every Chrome extension.
+Chrome extension entry point and permissions.
 
 **`background.js`**
-Runs silently in the background even when the popup is closed. Its one job: listen for tab switches (`chrome.tabs.onActivated`) and record `{url, timestamp}` to local storage every time the user changes tabs. Never shows UI — just quietly collects data.
+Background service worker that logs tab activations into local storage.
 
-**`popup.html`**
-The small window that appears when you click the extension icon in the toolbar. Just HTML — it shows a loading message while the AI runs, then groups get rendered into it dynamically by `popup.js`.
+**`popup.html` + `popup.js`**
+Popup UI and main agent loop:
+- load cached groups if available
+- otherwise observe tabs and ask Gemini Nano to group them
+- render groups
+- handle sleep, wake, and close actions
 
-**`popup.js`**
-The brain of the popup. Runs the full agent loop when the popup opens:
-1. Check storage for cached groups — if found, render instantly (no AI call)
-2. If no cache or Regroup pressed: read all open tabs, call Gemini Nano, parse groups, save to storage
-3. Read visit history to identify frequent tabs
-4. Render groups into the popup with sleep/wake/close buttons
-5. Handle all button actions, persisting sleep/wake state across popup opens
+**`stats.html` + `stats.js`**
+Stats and study page:
+- estimated total memory and per-group memory
+- awake/asleep group display
+- grouping quality ratings
+- participant ID display
+- self-report study questions
+- one-click study submission
 
 **`storage.js`**
-A shared utility module used by both `background.js` and `popup.js`. Contains three functions:
-- `writeVisit(url)` — saves a tab visit with current timestamp
-- `getFrequentUrls(threshold, windowHours)` — returns URLs visited frequently
-- `pruneOldVisits()` — removes entries older than 7 days
+Shared helper file used by background, popup, and stats pages:
+- visit logging
+- frequent-tab lookup
+- participant ID generation
+- study response persistence
+- automatic study snapshot export
 
 ---
 
-## Git workflow
+## Study submission
 
-Every task in TASKS.md gets its own commit. This keeps your history clean and maps directly to your build log.
+The Stats page can send an anonymized submission to the website backend.
 
-### Commit format
+Each submission can include:
+- anonymous participant ID
+- session log and visit count
+- tab and group counts
+- asleep group and asleep tab counts
+- estimated total tab memory
+- estimated saved memory
+- agreement rating summary
+- per-group snapshot data
+- self-report answers:
+  - Was the grouping useful?
+  - Did you trust the sleep/close suggestions?
+  - Would you use this in real browsing?
 
-```bash
-git add .
-git commit -m "T01 - short description of what you did"
-git push origin main
-```
-
-### Commit history so far
-
-```
-T01-T04  - extension skeleton: all 5 files, loads in Chrome
-T05-T29  - full agent loop: observe, group, render, sleep/wake, storage, frequent tabs
-T30-T31  - fix sleep/close: confirm before acting on frequent tabs, keep group visible after partial close
-```
-
-### After every code change
-
-1. Make your change
-2. Go to `chrome://extensions` → click the refresh icon on Tab Agent
-3. Close and reopen the popup to test
-4. If it works → commit
-
----
-
-## AI backend options
-
-This extension uses Gemini Nano by default — free, on-device, no account needed. Future versions will support switching to a cloud model for better grouping quality.
-
-| Option | Cost | Needs account | Works offline | Quality |
-|--------|------|--------------|---------------|---------|
-| Gemini Nano (default) | Free | No | Yes | Good |
-| Anthropic Claude (future) | ~$0.001/use | Yes | No | Best |
-| OpenAI GPT (future) | ~$0.001/use | Yes (free credits) | No | Very good |
-
----
-
-## Project deliverables
-
-This project is part of a research course. The required deliverables are:
-
-| File | Description |
-|------|-------------|
-| `SPEC.md` | Product specification — what the extension does, feature set, acceptance criteria |
-| `AGENTS.md` | Agent design — the observe → decide → act loop, memory schema, component map |
-| `TASKS.md` | Build checklist — 36 atomic tasks broken across the 2-day MVP sprint |
+Memory fields are estimated on Chrome stable at roughly `50 MB` per open tab.
 
 ---
 
 ## Milestones
 
-- **MVP** ← current milestone
-- **User Study** — test with real users, measure grouping quality and task completion
-- **Evals + Red Team** — compare Gemini Nano vs Claude vs GPT grouping quality, stress test edge cases
-- **Presentation** — final demo and research writeup
+- MVP
+- User Study
+- Evals + Red Team
+- Presentation
 
 ---
 
-## Known limitations (MVP)
+## Known limitations
 
-- Requires manual Chrome flag setup (see above)
+- Requires manual Chrome flag setup
 - Gemini Nano only supports English, Spanish, and Japanese
-- Groups persist between popup opens but reset if you hit Regroup or reinstall the extension
-- No undo for close actions (sleep can be undone with Wake)
-- No autonomous actions — all actions require a user click
-- Grouping quality depends on Gemini Nano — it's a small model, good but not perfect
+- Grouping quality depends on Gemini Nano and is not perfect
+- Memory values shown in Stats are estimated on Chrome stable
+- No autonomous tab actions in the MVP
+- Study submissions do not include researcher-observed timing or Chrome Task Manager measurements
