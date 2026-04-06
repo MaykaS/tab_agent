@@ -2,14 +2,12 @@
 
 const STORAGE_GROUPS_KEY = "cachedGroups";
 const STORAGE_ASLEEP_KEY = "asleepGroups";
-const STORAGE_SAVED_KEY  = "memorySaved";
-
-// Init
+const STORAGE_SAVED_KEY = "memorySaved";
+const ESTIMATED_MEMORY_PER_TAB_MB = 50;
 
 document.addEventListener("DOMContentLoaded", async () => {
   await renderAll();
 
-  // Refresh every 5 seconds; if groups are not cached yet, keep retrying renderAll.
   setInterval(async () => {
     const data = await chrome.storage.local.get(STORAGE_GROUPS_KEY);
     if (!data[STORAGE_GROUPS_KEY]) {
@@ -24,7 +22,7 @@ async function renderAll() {
   const data = await chrome.storage.local.get([
     STORAGE_GROUPS_KEY,
     STORAGE_ASLEEP_KEY,
-    STORAGE_SAVED_KEY
+    STORAGE_SAVED_KEY,
   ]);
 
   const cached = data[STORAGE_GROUPS_KEY] || null;
@@ -44,12 +42,10 @@ async function renderAll() {
   }
 
   const { groups, tabMap } = cached;
-
-  // Count real open tabs by matching URLs (cached IDs may be stale)
   const openTabs = await chrome.tabs.query({});
-  const realTabIds = new Set(openTabs.map(t => t.id));
-  const realUrls = new Set(openTabs.map(t => t.url).filter(Boolean));
-  const groupUrls = groups.flatMap(g => g.tabIds.map(id => tabMap[id]?.url).filter(Boolean));
+  const realTabIds = new Set(openTabs.map(tab => tab.id));
+  const realUrls = new Set(openTabs.map(tab => tab.url).filter(Boolean));
+  const groupUrls = groups.flatMap(group => group.tabIds.map(id => tabMap[id]?.url).filter(Boolean));
   const openCount = groupUrls.filter(url => realUrls.has(url)).length;
 
   document.getElementById("tab-count").textContent = openCount;
@@ -60,13 +56,11 @@ async function renderAll() {
   renderRatingForm(groups, tabMap);
 }
 
-// Memory
-
 async function refreshMemory() {
   const data = await chrome.storage.local.get([
     STORAGE_GROUPS_KEY,
     STORAGE_ASLEEP_KEY,
-    STORAGE_SAVED_KEY
+    STORAGE_SAVED_KEY,
   ]);
 
   const cached = data[STORAGE_GROUPS_KEY] || null;
@@ -76,9 +70,9 @@ async function refreshMemory() {
   if (!cached) return;
 
   const openTabs = await chrome.tabs.query({});
-  const realTabIds = new Set(openTabs.map(t => t.id));
-  const realUrls = new Set(openTabs.map(t => t.url).filter(Boolean));
-  const groupUrls = cached.groups.flatMap(g => g.tabIds.map(id => cached.tabMap[id]?.url).filter(Boolean));
+  const realTabIds = new Set(openTabs.map(tab => tab.id));
+  const realUrls = new Set(openTabs.map(tab => tab.url).filter(Boolean));
+  const groupUrls = cached.groups.flatMap(group => group.tabIds.map(id => cached.tabMap[id]?.url).filter(Boolean));
 
   const openCount = groupUrls.filter(url => realUrls.has(url)).length;
   document.getElementById("tab-count").textContent = openCount;
@@ -91,7 +85,6 @@ async function refreshMemory() {
 async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
   const wrap = document.getElementById("group-table-wrap");
 
-  // chrome.processes requires Chrome Dev channel. On stable, use tab count as a proxy.
   const hasRealData = false;
   const memoryByTabId = {};
 
@@ -101,8 +94,16 @@ async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
   const maxMem = Math.max(...groupMemories, 1);
 
   const totalMem = groupMemories.reduce((a, b) => a + b, 0);
+  const estimatedTotalMem = groups.reduce((sum, group) => {
+    const openInGroup = group.tabIds.filter(id => {
+      const url = tabMap[id]?.url;
+      return url && realUrls.has(url);
+    }).length;
+    return sum + (openInGroup * ESTIMATED_MEMORY_PER_TAB_MB);
+  }, 0);
+
   document.getElementById("total-memory").textContent =
-    hasRealData ? totalMem.toFixed(1) : "-";
+    hasRealData ? totalMem.toFixed(1) : estimatedTotalMem.toFixed(1);
 
   let html = `
     <table>
@@ -137,7 +138,7 @@ async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
             const url = tabMap[id]?.url;
             return url && realTabIds ? realUrls && realUrls.has(url) : true;
           }).length;
-          const estMB = isAsleep ? 0 : openInGroup * 50;
+          const estMB = isAsleep ? 0 : openInGroup * ESTIMATED_MEMORY_PER_TAB_MB;
           return `<span style="font-size:12px;color:#888">${openInGroup} tab${openInGroup !== 1 ? "s" : ""} · ~${estMB} MB est.</span>`;
         })();
 
@@ -166,18 +167,27 @@ async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
   }
 }
 
-// Research data submission
-
 async function renderSubmitSection() {
   const wrap = document.getElementById("submit-wrap");
   if (!wrap) return;
+
+  const participantId = await getParticipantId();
+  const savedResponses = await getStudyResponses();
 
   wrap.innerHTML = `
     <div style="margin-top:8px;">
       <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:14px;line-height:1.6;">
         Submitting your data helps validate the research claims for this project.
-        Only usage statistics are sent - no tab URLs or personal information.
+        Only usage statistics are sent - no tab URLs or personal information. Memory values are estimated.
       </p>
+      <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:10px;">
+        Participant ID: <strong>${escapeHtml(participantId)}</strong>
+      </div>
+      <div style="display:grid;gap:12px;margin-bottom:14px;">
+        ${renderStudyQuestion("grouping-useful", "Was the grouping useful?", savedResponses.groupingUseful)}
+        ${renderStudyQuestion("trust-sleep-close", "Did you trust the sleep/close suggestions?", savedResponses.trustSleepClose)}
+        ${renderStudyQuestion("would-use-real", "Would you use this in real browsing?", savedResponses.wouldUseInRealBrowsing)}
+      </div>
       <div id="submit-preview" style="background:var(--color-background-secondary);border:1px solid var(--color-border-tertiary);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--color-text-secondary);margin-bottom:14px;line-height:1.8;">
         Loading data preview...
       </div>
@@ -190,15 +200,34 @@ async function renderSubmitSection() {
 
   const exportData = await getAllDataForExport();
   document.getElementById("submit-preview").innerHTML = `
+    Participant ID: <strong>${escapeHtml(exportData.participantId)}</strong> &nbsp;·&nbsp;
+    Tabs: <strong>${exportData.tabCount}</strong> &nbsp;·&nbsp;
+    Groups: <strong>${exportData.groupCount}</strong> &nbsp;·&nbsp;
+    Open tabs: <strong>${exportData.openTabCount}</strong> &nbsp;·&nbsp;
+    Asleep tabs: <strong>${exportData.asleepTabCount}</strong><br>
     Sessions logged: <strong>${exportData.sessionLog.length}</strong> &nbsp;·&nbsp;
-    Rating sessions: <strong>${exportData.ratingHistory.length}</strong> &nbsp;·&nbsp;
-    Memory saved: <strong>${exportData.memorySaved.toFixed(0)} MB est.</strong> &nbsp;·&nbsp;
+    Rating sessions: <strong>${exportData.ratingCount}</strong> &nbsp;·&nbsp;
+    Avg rating: <strong>${exportData.avgRating.toFixed(1)}/5</strong> &nbsp;·&nbsp;
+    Memory saved: <strong>${exportData.memorySavedEstimateMb.toFixed(0)} MB est.</strong> &nbsp;·&nbsp;
+    Total tab memory: <strong>${exportData.totalTabMemoryEstimateMb.toFixed(0)} MB est.</strong> &nbsp;·&nbsp;
     Tab visits tracked: <strong>${exportData.visitCount}</strong>
   `;
 
   document.getElementById("submit-btn").addEventListener("click", async () => {
     const btn = document.getElementById("submit-btn");
     const status = document.getElementById("submit-status");
+    const studyResponses = {
+      groupingUseful: getSelectedStudyValue("grouping-useful"),
+      trustSleepClose: getSelectedStudyValue("trust-sleep-close"),
+      wouldUseInRealBrowsing: getSelectedStudyValue("would-use-real"),
+    };
+
+    if (Object.values(studyResponses).some(value => value === null)) {
+      status.textContent = "Please answer all three study questions before submitting.";
+      status.style.color = "#c0392b";
+      return;
+    }
+
     btn.disabled = true;
     btn.textContent = "Submitting...";
     btn.style.background = "";
@@ -206,11 +235,12 @@ async function renderSubmitSection() {
     status.style.color = "";
 
     try {
+      await saveStudyResponses(studyResponses);
       const data = await getAllDataForExport();
       const res = await fetch("https://tab-agent-web.vercel.app/api/collect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
 
       if (res.ok) {
@@ -230,8 +260,6 @@ async function renderSubmitSection() {
     }
   });
 }
-
-// Agreement rating form
 
 function renderRatingForm(groups, tabMap) {
   const form = document.getElementById("rating-form");
@@ -297,12 +325,12 @@ function renderRatingForm(groups, tabMap) {
   });
 
   document.getElementById("clear-ratings").addEventListener("click", () => {
-    form.querySelectorAll(".star").forEach(s => s.classList.remove("selected"));
-    Object.keys(ratings).forEach(k => delete ratings[k]);
+    form.querySelectorAll(".star").forEach(star => star.classList.remove("selected"));
+    Object.keys(ratings).forEach(key => delete ratings[key]);
     document.getElementById("score-result").style.display = "none";
     groups.forEach((_, i) => {
-      const lbl = document.getElementById(`rating-label-${i}`);
-      if (lbl) lbl.textContent = "Rate how well this group matches your mental model";
+      const label = document.getElementById(`rating-label-${i}`);
+      if (label) label.textContent = "Rate how well this group matches your mental model";
     });
   });
 }
@@ -311,7 +339,7 @@ function updateScore(ratings, total) {
   const keys = Object.keys(ratings);
   if (keys.length < total) return;
 
-  const avg = keys.reduce((sum, k) => sum + ratings[k], 0) / keys.length;
+  const avg = keys.reduce((sum, key) => sum + ratings[key], 0) / keys.length;
   const pct = Math.round((avg / 5) * 100);
 
   const result = document.getElementById("score-result");
@@ -332,7 +360,7 @@ async function saveRatings(ratings, groups) {
     timestamp: Date.now(),
     groupCount: groups.length,
     ratings,
-    avgScore: values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0
+    avgScore: values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0,
   };
 
   const data = await chrome.storage.local.get("ratingHistory");
@@ -349,12 +377,32 @@ async function saveRatings(ratings, groups) {
   }, 2000);
 }
 
-// Helpers
-
 function ratingLabel(n) {
   return ["", "Completely wrong", "Mostly wrong", "Partially right", "Mostly right", "Perfect"][n];
 }
 
 function escapeHtml(str) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderStudyQuestion(name, label, selectedValue) {
+  return `
+    <div style="font-size:12px;">
+      <div style="margin-bottom:6px;font-weight:600;color:#333;">${escapeHtml(label)}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${[1, 2, 3, 4, 5].map(value => `
+          <label style="display:flex;align-items:center;gap:4px;color:#555;">
+            <input type="radio" name="${name}" value="${value}" ${selectedValue === value ? "checked" : ""}>
+            <span>${value}</span>
+          </label>
+        `).join("")}
+      </div>
+      <div style="margin-top:4px;color:#888;">1 = low, 5 = high</div>
+    </div>
+  `;
+}
+
+function getSelectedStudyValue(name) {
+  const checked = document.querySelector(`input[name="${name}"]:checked`);
+  return checked ? Number(checked.value) : null;
 }

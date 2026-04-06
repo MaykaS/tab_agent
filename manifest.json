@@ -10,7 +10,8 @@
     "processes"
   ],
   "host_permissions": [
-    "https://tabagentweb-on16.vercel.app/*"
+    "https://tabagentweb-on16.vercel.app/*",
+    "https://tab-agent-web.vercel.app/*"
   ],
 
   "web_accessible_resources": [
