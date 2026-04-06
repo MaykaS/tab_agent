@@ -129,7 +129,7 @@ async function decideGroups(tabs) {
   const session = await LanguageModel.create({
     systemPrompt: "You are a browser tab organizer. You group tabs by topic. You always respond with valid JSON only — no markdown, no explanation, no extra text.",
     expectedInputLanguages: ["en"],
-    expectedOutputLanguages: ["en"]
+    outputLanguage: "en"
   });
 
   const tabList = tabs.map(t => ({ id: t.id, title: t.title, url: t.url }));
@@ -172,10 +172,31 @@ function parseGroupsFromResponse(response, tabs) {
   }
 
   const validIds = new Set(tabs.map(t => t.id));
-  return parsed.groups.map(group => ({
+  const groups = parsed.groups.map(group => ({
     name: group.name || "Unnamed group",
     tabIds: (group.tabIds || []).filter(id => validIds.has(id))
   })).filter(group => group.tabIds.length > 0);
+
+  const assignedIds = new Set(groups.flatMap(group => group.tabIds));
+  const unassignedIds = tabs
+    .map(tab => tab.id)
+    .filter(id => !assignedIds.has(id));
+
+  if (unassignedIds.length > 0) {
+    groups.push({
+      name: "Other",
+      tabIds: unassignedIds
+    });
+  }
+
+  if (groups.length === 0) {
+    return [{
+      name: "Other",
+      tabIds: tabs.map(tab => tab.id)
+    }];
+  }
+
+  return groups;
 }
 
 // ─── 3. Render ───────────────────────────────────────────────────────────────

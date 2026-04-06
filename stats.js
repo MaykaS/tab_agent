@@ -3,7 +3,7 @@
 const STORAGE_GROUPS_KEY = "cachedGroups";
 const STORAGE_ASLEEP_KEY = "asleepGroups";
 const STORAGE_SAVED_KEY = "memorySaved";
-const ESTIMATED_MEMORY_PER_TAB_MB = 50;
+const STATS_ESTIMATED_MEMORY_PER_TAB_MB = 50;
 
 document.addEventListener("DOMContentLoaded", async () => {
   await renderAll();
@@ -30,6 +30,7 @@ async function renderAll() {
   const savedMB = data[STORAGE_SAVED_KEY] || 0;
 
   document.getElementById("memory-saved").textContent = savedMB.toFixed(1);
+  await renderSubmitSection();
 
   if (!cached || !cached.groups) {
     document.getElementById("tab-count").textContent = "-";
@@ -38,6 +39,11 @@ async function renderAll() {
     document.getElementById("no-data").textContent =
       "No groups cached yet - click the Tab Agent icon in your toolbar to group your tabs first, then come back here.";
     document.getElementById("no-data").style.display = "block";
+    const form = document.getElementById("rating-form");
+    if (form) {
+      form.innerHTML = `<p id="no-groups-msg" style="font-size:13px;color:#888;">No groups to rate - open the popup first.</p>`;
+    }
+    document.getElementById("score-result").style.display = "none";
     return;
   }
 
@@ -52,7 +58,6 @@ async function renderAll() {
   document.getElementById("group-count").textContent = groups.length;
 
   await renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls);
-  await renderSubmitSection();
   renderRatingForm(groups, tabMap);
 }
 
@@ -99,7 +104,7 @@ async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
       const url = tabMap[id]?.url;
       return url && realUrls.has(url);
     }).length;
-    return sum + (openInGroup * ESTIMATED_MEMORY_PER_TAB_MB);
+    return sum + (openInGroup * STATS_ESTIMATED_MEMORY_PER_TAB_MB);
   }, 0);
 
   document.getElementById("total-memory").textContent =
@@ -138,7 +143,7 @@ async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
             const url = tabMap[id]?.url;
             return url && realTabIds ? realUrls && realUrls.has(url) : true;
           }).length;
-          const estMB = isAsleep ? 0 : openInGroup * ESTIMATED_MEMORY_PER_TAB_MB;
+          const estMB = isAsleep ? 0 : openInGroup * STATS_ESTIMATED_MEMORY_PER_TAB_MB;
           return `<span style="font-size:12px;color:#888">${openInGroup} tab${openInGroup !== 1 ? "s" : ""} · ~${estMB} MB est.</span>`;
         })();
 
@@ -171,94 +176,106 @@ async function renderSubmitSection() {
   const wrap = document.getElementById("submit-wrap");
   if (!wrap) return;
 
-  const participantId = await getParticipantId();
-  const savedResponses = await getStudyResponses();
+  wrap.innerHTML = `<div style="font-size:12px;color:#666;padding:8px 0;">Loading study submission form...</div>`;
 
-  wrap.innerHTML = `
-    <div style="margin-top:8px;">
-      <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:14px;line-height:1.6;">
-        Submitting your data helps validate the research claims for this project.
-        Only usage statistics are sent - no tab URLs or personal information. Memory values are estimated.
-      </p>
-      <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:10px;">
-        Participant ID: <strong>${escapeHtml(participantId)}</strong>
+  try {
+    const participantId = await loadParticipantId();
+    const savedResponses = await loadStudyResponses();
+
+    wrap.innerHTML = `
+      <div style="margin-top:8px;">
+        <p style="font-size:13px;color:#555;margin-bottom:14px;line-height:1.6;">
+          Submitting your data helps validate the research claims for this project.
+          Only usage statistics are sent - no tab URLs or personal information. Memory values are estimated.
+        </p>
+        <div style="font-size:12px;color:#555;margin-bottom:10px;">
+          Participant ID: <strong>${escapeHtml(participantId)}</strong>
+        </div>
+        <div style="display:grid;gap:12px;margin-bottom:14px;">
+          ${renderStudyQuestion("grouping-useful", "Was the grouping useful?", savedResponses.groupingUseful)}
+          ${renderStudyQuestion("trust-sleep-close", "Did you trust the sleep/close suggestions?", savedResponses.trustSleepClose)}
+          ${renderStudyQuestion("would-use-real", "Would you use this in real browsing?", savedResponses.wouldUseInRealBrowsing)}
+        </div>
+        <div id="submit-preview" style="background:#f7f7f7;border:1px solid #e5e5e5;border-radius:8px;padding:12px 14px;font-size:12px;color:#555;margin-bottom:14px;line-height:1.8;">
+          Loading data preview...
+        </div>
+        <button id="submit-btn" style="padding:8px 20px;background:#1a6fa3;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;">
+          Submit to study
+        </button>
+        <span id="submit-status" style="font-size:12px;margin-left:12px;color:#555;"></span>
       </div>
-      <div style="display:grid;gap:12px;margin-bottom:14px;">
-        ${renderStudyQuestion("grouping-useful", "Was the grouping useful?", savedResponses.groupingUseful)}
-        ${renderStudyQuestion("trust-sleep-close", "Did you trust the sleep/close suggestions?", savedResponses.trustSleepClose)}
-        ${renderStudyQuestion("would-use-real", "Would you use this in real browsing?", savedResponses.wouldUseInRealBrowsing)}
-      </div>
-      <div id="submit-preview" style="background:var(--color-background-secondary);border:1px solid var(--color-border-tertiary);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--color-text-secondary);margin-bottom:14px;line-height:1.8;">
-        Loading data preview...
-      </div>
-      <button id="submit-btn" style="padding:8px 20px;background:#1a6fa3;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;">
-        Submit to study
-      </button>
-      <span id="submit-status" style="font-size:12px;margin-left:12px;color:var(--color-text-secondary);"></span>
-    </div>
-  `;
+    `;
 
-  const exportData = await getAllDataForExport();
-  document.getElementById("submit-preview").innerHTML = `
-    Participant ID: <strong>${escapeHtml(exportData.participantId)}</strong> &nbsp;·&nbsp;
-    Tabs: <strong>${exportData.tabCount}</strong> &nbsp;·&nbsp;
-    Groups: <strong>${exportData.groupCount}</strong> &nbsp;·&nbsp;
-    Open tabs: <strong>${exportData.openTabCount}</strong> &nbsp;·&nbsp;
-    Asleep tabs: <strong>${exportData.asleepTabCount}</strong><br>
-    Sessions logged: <strong>${exportData.sessionLog.length}</strong> &nbsp;·&nbsp;
-    Rating sessions: <strong>${exportData.ratingCount}</strong> &nbsp;·&nbsp;
-    Avg rating: <strong>${exportData.avgRating.toFixed(1)}/5</strong> &nbsp;·&nbsp;
-    Memory saved: <strong>${exportData.memorySavedEstimateMb.toFixed(0)} MB est.</strong> &nbsp;·&nbsp;
-    Total tab memory: <strong>${exportData.totalTabMemoryEstimateMb.toFixed(0)} MB est.</strong> &nbsp;·&nbsp;
-    Tab visits tracked: <strong>${exportData.visitCount}</strong>
-  `;
+    const exportData = await loadExportData();
+    document.getElementById("submit-preview").innerHTML = `
+      Participant ID: <strong>${escapeHtml(exportData.participantId || participantId)}</strong> &nbsp;·&nbsp;
+      Tabs: <strong>${exportData.tabCount ?? 0}</strong> &nbsp;·&nbsp;
+      Groups: <strong>${exportData.groupCount ?? 0}</strong> &nbsp;·&nbsp;
+      Open tabs: <strong>${exportData.openTabCount ?? 0}</strong> &nbsp;·&nbsp;
+      Asleep tabs: <strong>${exportData.asleepTabCount ?? 0}</strong><br>
+      Sessions logged: <strong>${(exportData.sessionLog || []).length}</strong> &nbsp;·&nbsp;
+      Rating sessions: <strong>${exportData.ratingCount ?? 0}</strong> &nbsp;·&nbsp;
+      Avg rating: <strong>${Number(exportData.avgRating ?? 0).toFixed(1)}/5</strong> &nbsp;·&nbsp;
+      Memory saved: <strong>${Number(exportData.memorySavedEstimateMb ?? exportData.memorySaved ?? 0).toFixed(0)} MB est.</strong> &nbsp;·&nbsp;
+      Total tab memory: <strong>${Number(exportData.totalTabMemoryEstimateMb ?? 0).toFixed(0)} MB est.</strong> &nbsp;·&nbsp;
+      Tab visits tracked: <strong>${exportData.visitCount ?? 0}</strong>
+    `;
 
-  document.getElementById("submit-btn").addEventListener("click", async () => {
-    const btn = document.getElementById("submit-btn");
-    const status = document.getElementById("submit-status");
-    const studyResponses = {
-      groupingUseful: getSelectedStudyValue("grouping-useful"),
-      trustSleepClose: getSelectedStudyValue("trust-sleep-close"),
-      wouldUseInRealBrowsing: getSelectedStudyValue("would-use-real"),
-    };
+    document.getElementById("submit-btn").addEventListener("click", async () => {
+      const btn = document.getElementById("submit-btn");
+      const status = document.getElementById("submit-status");
+      const studyResponses = {
+        groupingUseful: getSelectedStudyValue("grouping-useful"),
+        trustSleepClose: getSelectedStudyValue("trust-sleep-close"),
+        wouldUseInRealBrowsing: getSelectedStudyValue("would-use-real"),
+      };
 
-    if (Object.values(studyResponses).some(value => value === null)) {
-      status.textContent = "Please answer all three study questions before submitting.";
-      status.style.color = "#c0392b";
-      return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = "Submitting...";
-    btn.style.background = "";
-    status.textContent = "";
-    status.style.color = "";
-
-    try {
-      await saveStudyResponses(studyResponses);
-      const data = await getAllDataForExport();
-      const res = await fetch("https://tab-agent-web.vercel.app/api/collect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (res.ok) {
-        btn.textContent = "Submitted!";
-        btn.style.background = "#2e7d32";
-        status.textContent = "Thank you - your data has been recorded.";
-      } else {
-        const responseText = await res.text();
-        throw new Error(`Server error ${res.status}: ${responseText || res.statusText}`);
+      if (Object.values(studyResponses).some(value => value === null)) {
+        status.textContent = "Please answer all three study questions before submitting.";
+        status.style.color = "#c0392b";
+        return;
       }
-    } catch (e) {
-      btn.disabled = false;
-      btn.textContent = "Submit to study";
-      status.textContent = `Submission failed: ${e.message}`;
-      status.style.color = "#c0392b";
-      console.error("Tab Agent submit failed:", e);
-    }
-  });
+
+      btn.disabled = true;
+      btn.textContent = "Submitting...";
+      btn.style.background = "";
+      status.textContent = "";
+      status.style.color = "";
+
+      try {
+        await saveStudyResponses(studyResponses);
+        const data = await loadExportData();
+        const res = await fetch("https://tab-agent-web.vercel.app/api/collect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        if (res.ok) {
+          btn.textContent = "Submitted!";
+          btn.style.background = "#2e7d32";
+          status.textContent = "Thank you - your data has been recorded.";
+        } else {
+          const responseText = await res.text();
+          throw new Error(`Server error ${res.status}: ${responseText || res.statusText}`);
+        }
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = "Submit to study";
+        status.textContent = `Submission failed: ${e.message}`;
+        status.style.color = "#c0392b";
+        console.error("Tab Agent submit failed:", e);
+      }
+    });
+  } catch (e) {
+    wrap.innerHTML = `
+      <div style="font-size:12px;color:#c0392b;line-height:1.6;">
+        Could not load the study submission form.<br>
+        ${escapeHtml(e.message || "Unknown error")}
+      </div>
+    `;
+    console.error("Tab Agent stats submit UI failed:", e);
+  }
 }
 
 function renderRatingForm(groups, tabMap) {
@@ -405,4 +422,58 @@ function renderStudyQuestion(name, label, selectedValue) {
 function getSelectedStudyValue(name) {
   const checked = document.querySelector(`input[name="${name}"]:checked`);
   return checked ? Number(checked.value) : null;
+}
+
+async function loadParticipantId() {
+  if (typeof getParticipantId === "function") {
+    return getParticipantId();
+  }
+
+  const data = await chrome.storage.local.get("participantId");
+  if (data.participantId) return data.participantId;
+
+  const participantId = `TA-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+  await chrome.storage.local.set({ participantId });
+  return participantId;
+}
+
+async function loadStudyResponses() {
+  if (typeof getStudyResponses === "function") {
+    return getStudyResponses();
+  }
+
+  const data = await chrome.storage.local.get("studyResponses");
+  return data.studyResponses || {
+    groupingUseful: null,
+    trustSleepClose: null,
+    wouldUseInRealBrowsing: null,
+  };
+}
+
+async function loadExportData() {
+  if (typeof getAllDataForExport === "function") {
+    return getAllDataForExport();
+  }
+
+  const data = await chrome.storage.local.get(null);
+  return {
+    participantId: data.participantId || await loadParticipantId(),
+    exportedAt: new Date().toISOString(),
+    sessionLog: data.sessionLog || [],
+    ratingHistory: data.ratingHistory || [],
+    memorySaved: data.memorySaved || 0,
+    visitCount: (data.visits || []).length,
+    tabCount: 0,
+    openTabCount: 0,
+    groupCount: 0,
+    asleepGroupCount: 0,
+    asleepTabCount: 0,
+    ratingCount: 0,
+    avgRating: 0,
+    memorySavedEstimateMb: data.memorySaved || 0,
+    totalTabMemoryEstimateMb: 0,
+    memoryMetricsAreEstimated: true,
+    studyResponses: await loadStudyResponses(),
+    groups: [],
+  };
 }
