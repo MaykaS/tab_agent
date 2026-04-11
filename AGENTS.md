@@ -1,303 +1,303 @@
-# AGENTS.md — Tab Agent Chrome Extension
+# AGENTS.md - Tab Agent Chrome Extension
 
-## What Makes This an Agent
+## What makes this an agent
 
-Tab Agent is not a rule-based plugin. It has an observe → decide → act → remember loop, persistent memory that influences future decisions, and takes actions with real consequences (suspending or closing tabs).
+Tab Agent is no longer just an AI-assisted popup. In the current direction, it has a real:
 
-**Important distinction — MVP vs agentic:**
+- **observe** loop
+- **predict** loop
+- **act** loop
+- **learn** loop
 
-The MVP is the *non-agentic* version. The agent groups tabs intelligently and protects frequent tabs, but every action (sleep, wake, close) is triggered by the user. The agent is an assistant.
+The key distinction is:
 
-The full agentic version — currently in design, to be built after the user study — closes the loop: the agent acts *autonomously* based on a learned behavioral model. It sleeps tabs it predicts you won't need, and wakes tabs when context signals you're about to need them. The user sets the policy once; the agent executes continuously.
+- the MVP assistant grouped tabs and waited for the user to act
+- the agentic version autonomously sleeps low-need tabs and context-wakes related tabs
 
-The observe → decide → act → remember loop is the same in both versions. What changes is the Act step: user-triggered in MVP, autonomous in the agentic version.
+This version is intentionally conservative. It is browser-only, explainable, and benchmarkable.
 
 ---
 
-## Agent Loop
+## Current agent loop
 
-**MVP (current):**
-```
-OBSERVE  →  DECIDE  →  ACT (user click)  →  REMEMBER
-   ↑                                              |
-   └──────────────────────────────────────────────┘
-                   (next popup open)
-```
-
-**Agentic version (next):**
-```
-OBSERVE  →  DECIDE  →  ACT (autonomous)  →  REMEMBER
-   ↑         ↑                                   |
-   |         └── behavioral model ───────────────┘
-   └──────────────────────────────────────────────
-                (continuous background loop)
+```text
+OBSERVE -> PREDICT -> ACT -> LEARN
+   ^                         |
+   +-------------------------+
 ```
 
 ### 1. Observe
 
-**Trigger:** User opens the extension popup.
+The agent reads:
 
-**What the agent reads:**
-- All open tabs via `chrome.tabs.query({})`
-- For each tab: `id`, `title`, `url` (Chrome-internal pages filtered out)
-- Visit history from `chrome.storage.local` — how many times each URL was accessed in the last 24 hours
-- Cached groups from previous session (if available) — used to skip the AI call on reopen
+- open tabs via `chrome.tabs.query`
+- the currently activated tab
+- cached tab groups
+- asleep state
+- visit history
+- recent activation sequence
+- per-URL and per-group behavior models
+- protected contexts
 
-**Output of this step:** A structured list of tab objects passed to the decision layer, plus a Set of frequently-visited URLs.
+### 2. Predict
 
----
+The local policy predicts:
 
-### 2. Decide
+- `willNeedInNext15Min`
 
-**Who decides:** Gemini Nano (`LanguageModel.prompt()`)
+This prediction is built from:
 
-**When the AI is called:** Only when there is no cached grouping, or when the user explicitly clicks "Regroup". On normal reopens, the cached result is used directly — no AI call.
-
-**Input prompt structure:**
-```
-You are a browser tab organizer. Group the following browser tabs by topic.
-Return ONLY a JSON object in exactly this format, with no extra text:
-{
-  "groups": [
-    { "name": "group name", "tabIds": [1, 2, 3] }
-  ]
-}
-
-Rules:
-- Create 2 to 6 groups maximum
-- Every tab must appear in exactly one group
-- Group names should be short (2-4 words)
-- If a tab doesn't fit anywhere, put it in a group called "Other"
-
-Tabs:
-[{ "id": 1, "title": "...", "url": "..." }, ...]
-```
-
-**Output of this step:** A JSON object mapping tab IDs to named groups, saved to `chrome.storage.local`.
-
-**Fallback:** If Gemini Nano is unavailable (`LanguageModel.availability()` returns anything other than `"available"`), show a clear error message in the popup. Do not crash. Do not attempt a cloud API call.
-
----
+- recency
+- visit frequency
+- average revisit interval
+- time-of-day affinity
+- day-of-week affinity
+- recent group activity
+- regret history
+- safe-sleep history
+- protection history
 
 ### 3. Act
 
-#### MVP behavior (current)
+Allowed autonomous actions:
 
-**Who acts:** The user, via popup UI. The agent never acts autonomously in the MVP.
+- `auto_sleep`
+- `auto_wake`
 
-**Available actions:**
+The agent should not autonomously:
 
-| Action | Chrome API | Scope | Constraint |
-|--------|-----------|-------|------------|
-| Sleep group | `chrome.tabs.discard(tabId)` | Non-frequent tabs in group | Confirms before sleeping frequent tabs |
-| Wake group | `chrome.tabs.reload(tabId)` | All slept tabs in group | No constraint |
-| Close group | `chrome.tabs.remove([tabIds])` | Tabs matched by URL | Confirms before closing frequent tabs; partial close keeps frequent tabs visible |
+- close tabs
+- wake tabs aggressively based only on time prediction
+- manage apps outside the browser
 
-**Frequent tab rule:** A tab is "frequent" if its URL appears 3 or more times in visit history within the last 24 hours. Frequent tabs are visually badged. Sleep and Close ask for confirmation before acting on them.
+Hard safety rules remain outside the model:
 
-**URL-based matching:** Tab IDs in Chrome are session-scoped and go stale after discards and reloads. All close and sleep actions match tabs by URL against current open tabs, not by cached ID.
+- do not auto-sleep pinned tabs
+- do not auto-sleep very recently active tabs
+- do not auto-sleep frequent/protected tabs
+- do not auto-sleep audible tabs if detectable
 
-#### Agentic behavior (next — to be built)
+### 4. Learn
 
-**Who acts:** The agent, autonomously, running as a background service worker.
+The agent learns from:
 
-**Auto-sleep triggers:**
+#### Implicit feedback
+- reopen within 5 minutes of sleep
+- reopen within 15 minutes of sleep
+- manual wake shortly after sleep
+- undo
+- repeated protect behavior
 
-| Trigger | Signal | Behavior |
-|---------|--------|----------|
-| Inactivity threshold | Time since last visit, personalized per URL | Sleep tab if inactive longer than learned threshold |
-| Low need score | Time-of-day + day-of-week patterns | Sleep tab if predicted need in next 60 min is below threshold |
-| Never sleep | Frequent tab flag | Skip tabs above visit frequency threshold |
-| Never sleep | Active media or open form | Detect tab state before discarding |
+#### Explicit feedback
+- `Good`
+- `Bad`
 
-**Auto-wake trigger (Option B — context-based):**
+Each autonomous action becomes a structured example with:
 
-When a tab becomes active, the agent checks: are there slept tabs in the same group? If yes, wake them. The reasoning: if you're working in a context (e.g. "Research"), the related tabs in that group are probably needed too.
-
-| Trigger | Signal | Behavior |
-|---------|--------|----------|
-| Related tab activated | Group membership | Wake all slept tabs in the same group |
-| Scheduled pattern | Time-of-day history | Wake tabs that are consistently visited at this time |
-
-**Transparency rule:** Every autonomous action is logged and surfaced to the user — "Slept 3 tabs in Shopping (inactive 45 min)" and "Woke GitHub Docs because you opened a related tab." The user can undo any autonomous action.
-
-**Why Option B over Option A for wake:**
-Option A (time-based prediction) requires extensive history and risks waking tabs the user doesn't need — wasting memory. Option B (context-triggered) is reactive to what the user is doing *right now*, more reliable, and naturally scoped to the current working context.
+- features at decision time
+- score/confidence
+- target tab/group
+- explanation
+- outcome
 
 ---
 
-### 4. Remember
+## OpenAI role
 
-The agent maintains three types of memory in `chrome.storage.local`:
+OpenAI is **not** the hot-path controller in this version.
 
-**a) Visit history** — behavioral signal
+The local browser policy still decides real-time sleep/wake actions.
+
+OpenAI is used for:
+
+- summarizing behavior patterns
+- generating human-readable policy summaries
+- recommending threshold changes
+- suggesting protected contexts
+
+### OpenAI context blocks
+
+1. **Current session context**
+- open tab count
+- asleep tab count
+- active group/context
+- recent activation sequence
+- current grouped tab snapshot
+
+2. **Behavior summary**
+- per-tab/group recency
+- frequency
+- average revisit interval
+- hour/day affinity
+- co-activation patterns
+- regret/safe/protection counts
+
+3. **Recent autonomous actions**
+- action type
+- confidence
+- reason
+- outcome
+- feedback
+
+OpenAI output should be structured and advisory:
+
+- summary
+- recommendations
+- threshold deltas
+- suggested protected contexts
+
+---
+
+## Components
+
+### `background.js`
+- records tab activations
+- updates behavior memory
+- runs the periodic agent cycle
+- handles context wake
+
+### `agent.js`
+- builds tab features
+- scores need probability
+- selects conservative autonomous sleep candidates
+- logs autonomous actions
+
+### `storage.js`
+- shared persistent memory layer
+- visit history
+- session log
+- URL and group behavior models
+- protected contexts
+- agent policy
+- action log
+- feedback log
+- study export builder
+
+### `popup.js`
+- manual observe/decide/act loop for grouped tabs
+- manual sleep/wake/close controls
+
+### `stats.js`
+- estimated memory dashboard
+- recent autonomous action feed
+- undo / protect / good / bad controls
+- OpenAI policy summary trigger
+- grouping-quality ratings
+- study submission
+
+---
+
+## Repo split
+
+- `tab_agent`
+  - extension runtime
+  - local policy
+  - feedback loop UI
+- `tab_agent_web`
+  - study backend
+  - admin metrics
+  - OpenAI summary endpoint
+
+Extension behavior changes belong in `tab_agent`, not only in the web repo.
+
+---
+
+## Storage model
+
+### Behavioral memory
+
 ```js
-{
-  "visits": [
-    { "url": "https://...", "timestamp": 1234567890 },
-    ...
-  ]
+urlModel[url] = {
+  activationCount,
+  lastActiveAt,
+  avgReturnMinutes,
+  hourCounts,
+  dayCounts,
+  regretCount,
+  safeSleepCount,
+  protectionCount,
+  coActivationCounts
 }
 ```
-- Written by `background.js` on every `chrome.tabs.onActivated` event
-- Pruned to 7 days on each write
-- Used to compute frequent tabs threshold (3+ visits in 24h)
 
-**b) Cached groups** — session continuity
+### Group memory
+
 ```js
-{
-  "cachedGroups": {
-    "groups": [{ "name": "...", "tabIds": [...] }],
-    "tabMap": { "tabId": { "id", "title", "url" } }
-  }
+groupModel[groupName] = {
+  activationCount,
+  lastActiveAt,
+  hourCounts,
+  dayCounts,
+  regretCount,
+  safeSleepCount,
+  protectionCount
 }
 ```
-- Written after every successful AI grouping
-- Read on popup open to skip re-grouping
-- Updated when a group is closed (group removed from cache)
-- Cleared on Regroup
 
-**c) Asleep state** — UI persistence
+### Action log
+
 ```js
 {
-  "asleepGroups": {
-    "0": [tabId1, tabId2],  // groupIndex → slept tabIds
-    ...
-  }
+  id,
+  type,
+  createdAt,
+  confidence,
+  score,
+  reason,
+  features,
+  target,
+  outcome,
+  feedback
 }
 ```
-- Written when a group is slept
-- Read on popup open to restore Wake buttons
-- Cleared when group is woken
 
-**d) Behavioral model** — agentic decision input (to be built)
+### Feedback log
+
 ```js
 {
-  "urlModel": {
-    "https://...": {
-      "avgVisitInterval": 1200000,  // ms between visits
-      "peakHours": [9, 10, 14, 15], // hours of day typically visited
-      "peakDays": [1, 2, 3, 4, 5],  // days of week (0=Sun)
-      "coActivations": ["https://related-url..."] // tabs often opened together
-    }
-  }
-}
-```
-- Built from visit history over time
-- Used by the agentic loop to score tab need probability
-- Co-activation data powers Option B wake behavior
-
-**e) Stats data** — measurement
-```js
-{
-  "memorySaved": 150.0,          // cumulative estimated MB saved
-  "ratingHistory": [             // agreement rating sessions
-    { "timestamp": ..., "avgScore": 4.2, "ratings": {...} }
-  ]
+  id,
+  timestamp,
+  actionId,
+  type,
+  url,
+  groupName
 }
 ```
 
 ---
 
-## Agent Components
+## Benchmark framing
 
-**MVP (current):**
-```
-background.js        — persistent service worker
-  ├── listens to chrome.tabs.onActivated
-  └── writes visit history to chrome.storage.local
+The system should be evaluated as:
 
-popup.js             — runs when popup opens
-  ├── checks cache → skips AI if groups exist
-  ├── calls chrome.tabs.query() → observation
-  ├── reads chrome.storage.local → frequent URLs + asleep state
-  ├── calls LanguageModel.prompt() → decision (only when needed)
-  ├── saves groups + asleep state to storage → memory
-  ├── renders groups in popup.html → display
-  └── handles sleep/wake/close button clicks → action
+- **Baseline A:** fixed rule-based sleep policy
+- **Baseline B:** current assistant MVP
+- **Experimental:** personalized autonomous agent
 
-storage.js           — shared helper module
-  ├── writeVisit(url)
-  ├── getFrequentUrls(threshold, windowHours)
-  └── pruneOldVisits()
+The main question is:
 
-stats.html + stats.js — measurement dashboard
-  ├── reads cachedGroups + asleepGroups + memorySaved from storage
-  ├── cross-references with real open tabs via chrome.tabs.query()
-  ├── displays memory per group (estimated) + awake/asleep status
-  ├── auto-refreshes every 5 seconds
-  └── agreement rating form → saves to ratingHistory
-```
+> Can a personalized autonomous browser policy save more memory than a fixed rule while causing less interruption?
 
-**Agentic version (to be built):**
-```
-background.js        — expanded service worker (always running)
-  ├── existing: listens to chrome.tabs.onActivated → writes visit history
-  ├── NEW: builds behavioral model per URL (avgInterval, peakHours, coActivations)
-  ├── NEW: runs decision loop every N minutes
-  │     ├── scores each open tab for predicted need
-  │     ├── sleeps tabs below sleep threshold
-  │     └── logs autonomous actions to storage
-  └── NEW: listens for tab activation → triggers context-based wake (Option B)
-        └── when tab activates → wake slept tabs in same group
+### Benefit metrics
+- estimated memory saved
+- autonomous sleep count
+- autonomous wake count
 
-agent.js             — NEW: behavioral model + scoring engine
-  ├── buildModel(visitHistory) → urlModel
-  ├── scoreTab(url, currentTime) → needProbability (0–1)
-  ├── shouldSleep(url) → boolean + reason
-  ├── shouldWake(activatedUrl, groupMap) → [urlsToWake]
-  └── logAction(type, url, reason) → actionLog
+### Cost metrics
+- reopen/regret count
+- undo count
+- explicit bad-feedback count
 
-storage.js           — expanded helpers
-  ├── existing: writeVisit, getFrequentUrls, pruneOldVisits
-  ├── NEW: updateUrlModel(url, visitData)
-  ├── NEW: getUrlModel(url) → behavioral stats
-  └── NEW: logAgentAction(action) → append to actionLog
-```
+### User metrics
+- usefulness
+- trust
+- willingness to use
 
 ---
 
-## What This Agent Does NOT Do (MVP)
+## Out of scope in this version
 
-- Does not act without a user click — all actions are user-triggered in MVP
-- Does not run a continuous background decision loop
-- Does not build a per-URL behavioral model (collects history but doesn't model it yet)
-- Does not communicate with any external server
-- Does not have access to page content (only tab title and URL)
-- Does not use real CPU/memory data (estimated only on stable Chrome)
-
-These are the exact gaps the agentic version fills.
-
----
-
-## Agentic Version — Build Plan
-
-This is the next implementation phase after the user study.
-
-### Phase 1 — Behavioral model (foundation)
-- Build `agent.js` with `buildModel()` and `scoreTab()` functions
-- Model inputs: visit frequency, time-of-day, day-of-week patterns per URL
-- Output: need probability score (0–1) for each open tab
-- Test: does the model correctly rank tabs the user actually returns to?
-
-### Phase 2 — Auto-sleep
-- Add continuous decision loop to `background.js` (runs every 5 minutes)
-- Sleep tabs whose need score falls below configurable threshold
-- Never sleep: frequent tabs, tabs with active media, tabs with open forms
-- Surface all autonomous actions in the Stats page action log
-
-### Phase 3 — Auto-wake (Option B)
-- On `chrome.tabs.onActivated`: check if activated tab has slept siblings in same group
-- If yes: wake them
-- Log the wake action with reason ("Woke X because you opened a related tab")
-- Add scheduled wake: detect time-of-day patterns, wake tabs before predicted need
-
-### Phase 4 — User control + transparency
-- Settings page: sleep threshold, wake sensitivity, per-group opt-out
-- Action log visible in stats page: every autonomous action with reason + undo button
-- Feedback loop: user can mark autonomous actions as correct/incorrect → improves model
-
-### Phase 5 — MCP + RAG (professor sequence)
-- MCP server exposes tab state to external tools (calendar, Notion, etc.)
-- RAG over browsing history to improve grouping and need prediction
-- Richer context signals beyond tab title/URL
+- autonomous close
+- full system CPU/memory management
+- raw page-content understanding
+- cloud LLM control over every tab action

@@ -2,74 +2,154 @@
 
 **Website:** https://tab-agent-web.vercel.app/ · **GitHub:** https://github.com/MaykaS/tab_agent
 
-An agentic Chrome extension that uses on-device AI (Gemini Nano) to intelligently group your open tabs by topic, protect your most-used tabs from being suspended, and let you take one-click actions on entire groups.
+Tab Agent is an agentic Chrome extension that groups tabs with Gemini Nano, autonomously sleeps low-need tabs, context-wakes related tabs, and learns from feedback over time.
 
-No API key required. Gemini Nano runs locally in Chrome. Study submissions are anonymous and only sent when the user explicitly clicks submit in the Stats page.
+The real-time agent stays local in the browser. OpenAI is used for behavior summaries, explanation support, and policy-tuning recommendations, not for the hot-path sleep/wake controller.
+
+## Repo split
+
+- **`tab_agent`**: the Chrome extension itself
+  - popup
+  - background service worker
+  - local autonomous policy
+  - Stats page
+  - feedback loop
+- **`tab_agent_web`**: the website and backend
+  - study storage
+  - admin dashboard
+  - OpenAI summary endpoint
+
+If you want the browser extension behavior to change, this repo is the one that needs to be updated.
 
 ---
 
 ## What it does
 
-- Reads all your open tabs and sends them to Gemini Nano running locally in Chrome
-- Groups tabs by topic, for example "Research", "Planning", or "Web Development"
-- Caches groups so reopening the popup is instant
-- Lets you sleep, wake, or close groups
-- Protects frequently visited tabs with a visible badge and confirmation prompts
-- Tracks local visit history for frequent-tab detection
-- Includes a Stats page with estimated memory, grouping ratings, and study submission
-- Auto-generates an anonymous participant ID for study submissions
-- Sends a richer study snapshot with group counts, asleep state, rating summary, per-group details, and three self-report questions
+- Groups open tabs by topic with Gemini Nano running locally in Chrome
+- Caches groups for instant reopen
+- Lets users manually sleep, wake, or close groups
+- Autonomously sleeps low-need tabs using a conservative local policy
+- Context-wakes slept tabs when the user re-enters a related group
+- Logs autonomous actions, outcomes, undo events, and feedback
+- Supports explicit feedback:
+  - `Undo`
+  - `Protect`
+  - `Good`
+  - `Bad`
+- Includes a Stats page with:
+  - estimated memory totals
+  - per-group memory view
+  - autonomous activity feed
+  - OpenAI policy summary generation
+  - grouping-quality ratings
+  - study submission
 
 ---
 
-## Tech stack
+## Architecture
 
-| Layer | Choice |
-|-------|--------|
-| AI | Gemini Nano via Chrome's built-in Prompt API |
-| Extension framework | Chrome Manifest V3 |
-| Language | Vanilla JavaScript |
-| Storage | `chrome.storage.local` |
-| UI | HTML + CSS |
-| Study backend | Next.js API + Neon Postgres |
+### Local browser agent
+
+- `background.js`
+  - records activations
+  - updates behavior memory
+  - runs a periodic agent cycle
+  - auto-sleeps low-need tabs
+  - auto-wakes related slept tabs
+
+- `agent.js`
+  - builds tab features
+  - scores near-term need
+  - selects conservative autonomous actions
+
+- `storage.js`
+  - stores visit history
+  - stores behavior models
+  - stores action logs and feedback logs
+  - stores protected contexts and policy state
+  - builds study export payloads
+
+### Website / research backend
+
+- `/api/collect`
+  - stores anonymized study submissions in Neon Postgres
+- `/api/agent-summary`
+  - sends structured behavioral summaries to OpenAI
+  - returns policy-tuning recommendations and explanation summaries
+- `/admin`
+  - compares autonomous agent metrics with rule-baseline metrics
+
+---
+
+## Agent loop
+
+1. **Observe**
+- active tab
+- open tabs
+- grouped context
+- visit history
+- time/day patterns
+- recent activations
+
+2. **Predict**
+- estimate `willNeedInNext15Min`
+
+3. **Act**
+- auto-sleep high-confidence low-need tabs
+- context-wake related slept tabs
+
+4. **Learn**
+- implicit feedback:
+  - reopen within 5 / 15 minutes
+  - undo
+  - manual wake after sleep
+  - protect
+- explicit feedback:
+  - good
+  - bad
+
+---
+
+## Benchmark framing
+
+The system is evaluated as:
+
+- **Baseline A:** static rule-based tab management
+- **Baseline B:** assistant MVP with manual actions
+- **Experimental:** personalized autonomous agent
+
+Key metrics:
+
+- estimated memory saved
+- autonomous sleep count
+- autonomous wake count
+- reopen/regret count
+- undo rate
+- trust / usefulness / willingness to use
 
 ---
 
 ## How to enable Gemini Nano
 
-Gemini Nano requires a one-time Chrome setup.
+### 1. Enable Chrome flags
 
-### Step 1 - Enable the flags
+`chrome://flags/#prompt-api-for-gemini-nano`
+Set to: `Enabled`
 
-Open these pages in Chrome and enable the listed values:
+`chrome://flags/#optimization-guide-on-device-model`
+Set to: `Enabled BypassPerfRequirement`
 
-**Flag 1**
-```
-chrome://flags/#prompt-api-for-gemini-nano
-```
-Set to: **Enabled**
+### 2. Relaunch Chrome
 
-**Flag 2**
-```
-chrome://flags/#optimization-guide-on-device-model
-```
-Set to: **Enabled BypassPerfRequirement**
+### 3. Download the model
 
-### Step 2 - Relaunch Chrome
-
-Use the **Relaunch** button from the flags page.
-
-### Step 3 - Download the model
-
-Open DevTools on any page and run:
+Run in DevTools:
 
 ```js
 await LanguageModel.create()
 ```
 
-### Step 4 - Verify it worked
-
-Run:
+### 4. Verify availability
 
 ```js
 await LanguageModel.availability()
@@ -79,9 +159,9 @@ It should return `"available"`.
 
 ---
 
-## How to install the extension
+## How to install
 
-1. Clone this repo
+1. Clone the repo
    ```bash
    git clone https://github.com/MaykaS/tab_agent.git
    cd tab_agent
@@ -90,102 +170,48 @@ It should return `"available"`.
 3. Enable **Developer mode**
 4. Click **Load unpacked**
 5. Select the project folder
-6. Open the popup from the toolbar
 
-After every change:
+After code changes:
 
 1. Reload the extension in `chrome://extensions`
-2. Close and reopen the popup or Stats page
-
----
-
-## File structure
-
-```text
-tab agent/
-|-- README.md
-|-- SPEC.md
-|-- AGENTS.md
-|-- TASKS.md
-|-- manifest.json
-|-- background.js
-|-- popup.html
-|-- popup.js
-|-- stats.html
-|-- stats.js
-`-- storage.js
-```
-
-### What each file does
-
-**`manifest.json`**
-Chrome extension entry point and permissions.
-
-**`background.js`**
-Background service worker that logs tab activations into local storage.
-
-**`popup.html` + `popup.js`**
-Popup UI and main agent loop:
-- load cached groups if available
-- otherwise observe tabs and ask Gemini Nano to group them
-- render groups
-- handle sleep, wake, and close actions
-
-**`stats.html` + `stats.js`**
-Stats and study page:
-- estimated total memory and per-group memory
-- awake/asleep group display
-- grouping quality ratings
-- participant ID display
-- self-report study questions
-- one-click study submission
-
-**`storage.js`**
-Shared helper file used by background, popup, and stats pages:
-- visit logging
-- frequent-tab lookup
-- participant ID generation
-- study response persistence
-- automatic study snapshot export
+2. Reopen the popup or Stats page
 
 ---
 
 ## Study submission
 
-The Stats page can send an anonymized submission to the website backend.
+The Stats page submits an anonymized snapshot that can include:
 
-Each submission can include:
-- anonymous participant ID
-- session log and visit count
-- tab and group counts
-- asleep group and asleep tab counts
-- estimated total tab memory
-- estimated saved memory
-- agreement rating summary
-- per-group snapshot data
-- self-report answers:
-  - Was the grouping useful?
-  - Did you trust the sleep/close suggestions?
-  - Would you use this in real browsing?
+- participant ID
+- tab/group/asleep counts
+- rating summary
+- estimated memory totals
+- autonomous action log
+- feedback log
+- protected contexts
+- baseline comparison summary
+- self-report answers
 
-Memory fields are estimated on Chrome stable at roughly `50 MB` per open tab.
+Memory fields are estimated on Chrome stable.
 
 ---
 
-## Milestones
+## Test set
 
-- MVP
-- User Study
-- Evals + Red Team
-- Presentation
+This repo now includes a reusable scenario package in [agent_test_set/README.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/agent_test_set/README.md).
+
+Use it to manually compare:
+- rule baseline
+- assistant MVP
+- autonomous agent
+
+before building a formal runner.
 
 ---
 
 ## Known limitations
 
-- Requires manual Chrome flag setup
-- Gemini Nano only supports English, Spanish, and Japanese
-- Grouping quality depends on Gemini Nano and is not perfect
-- Memory values shown in Stats are estimated on Chrome stable
-- No autonomous tab actions in the MVP
-- Study submissions do not include researcher-observed timing or Chrome Task Manager measurements
+- Browser-only for now; not full system memory management yet
+- Memory values are estimated on Chrome stable
+- Autonomous policy is intentionally conservative in v1
+- OpenAI summaries are advisory; the local policy still controls actions

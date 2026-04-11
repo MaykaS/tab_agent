@@ -1,0 +1,364 @@
+{
+  "version": 1,
+  "predictionTarget": "willNeedInNext15Min",
+  "notes": [
+    "Memory is estimated on Chrome stable.",
+    "Fixtures are designed for manual evaluation now and automated replay later."
+  ],
+  "scenarios": [
+    {
+      "id": "deep_work_cluster",
+      "name": "Deep Work Cluster",
+      "goal": "Preserve active engineering context and sleep stale reading tabs.",
+      "category": "sleep",
+      "currentSession": { "timeOfDay": 14, "dayOfWeek": 5, "openTabCount": 6, "asleepTabCount": 0, "activeGroup": "Engineering" },
+      "openTabs": [
+        { "id": 1, "title": "GitHub PR", "url": "https://github.com/org/repo/pull/1", "group": "Engineering", "active": true, "pinned": false, "audible": false },
+        { "id": 2, "title": "Stack Overflow", "url": "https://stackoverflow.com/q/1", "group": "Engineering", "active": false, "pinned": false, "audible": false },
+        { "id": 3, "title": "Next.js docs", "url": "https://nextjs.org/docs", "group": "Engineering", "active": false, "pinned": false, "audible": false },
+        { "id": 4, "title": "Linear issue", "url": "https://linear.app/issue/1", "group": "Engineering", "active": false, "pinned": false, "audible": false },
+        { "id": 5, "title": "News article", "url": "https://news.example.com/story", "group": "Reading", "active": false, "pinned": false, "audible": false },
+        { "id": 6, "title": "Wikipedia page", "url": "https://wikipedia.org/wiki/Test", "group": "Reading", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [
+        { "name": "Engineering", "tabIds": [1, 2, 3, 4] },
+        { "name": "Reading", "tabIds": [5, 6] }
+      ],
+      "behaviorSummary": {
+        "urls": {
+          "https://github.com/org/repo/pull/1": { "minutesSinceLastActive": 0, "visits24h": 7, "avgReturnMinutes": 8, "regretCount": 0, "safeSleepCount": 0 },
+          "https://stackoverflow.com/q/1": { "minutesSinceLastActive": 6, "visits24h": 5, "avgReturnMinutes": 14, "regretCount": 1, "safeSleepCount": 0 },
+          "https://nextjs.org/docs": { "minutesSinceLastActive": 10, "visits24h": 4, "avgReturnMinutes": 18, "regretCount": 0, "safeSleepCount": 0 },
+          "https://linear.app/issue/1": { "minutesSinceLastActive": 12, "visits24h": 3, "avgReturnMinutes": 20, "regretCount": 0, "safeSleepCount": 0 },
+          "https://news.example.com/story": { "minutesSinceLastActive": 62, "visits24h": 1, "avgReturnMinutes": 240, "regretCount": 0, "safeSleepCount": 3 },
+          "https://wikipedia.org/wiki/Test": { "minutesSinceLastActive": 48, "visits24h": 1, "avgReturnMinutes": 180, "regretCount": 0, "safeSleepCount": 2 }
+        }
+      },
+      "recentActivations": [
+        { "url": "https://github.com/org/repo/pull/1", "group": "Engineering" },
+        { "url": "https://stackoverflow.com/q/1", "group": "Engineering" },
+        { "url": "https://nextjs.org/docs", "group": "Engineering" }
+      ],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "expected": {
+        "sleepCandidates": ["https://news.example.com/story", "https://wikipedia.org/wiki/Test"],
+        "protectedTabs": ["https://github.com/org/repo/pull/1", "https://stackoverflow.com/q/1", "https://nextjs.org/docs", "https://linear.app/issue/1"],
+        "contextWake": { "triggerUrl": "https://github.com/org/repo/pull/1", "shouldWakeGroups": ["Engineering"] },
+        "benchmarkNotes": "Rule baseline may also sleep reading tabs; agent should do so while preserving the active cluster."
+      }
+    },
+    {
+      "id": "heavy_productivity_cluster",
+      "name": "Heavy Productivity Cluster",
+      "goal": "Protect high-frequency productivity tools.",
+      "category": "sleep",
+      "currentSession": { "timeOfDay": 10, "dayOfWeek": 2, "openTabCount": 4, "asleepTabCount": 0, "activeGroup": "Productivity" },
+      "openTabs": [
+        { "id": 11, "title": "Gmail", "url": "https://mail.google.com/mail/u/0/", "group": "Productivity", "active": true, "pinned": true, "audible": false },
+        { "id": 12, "title": "Calendar", "url": "https://calendar.google.com/calendar", "group": "Productivity", "active": false, "pinned": false, "audible": false },
+        { "id": 13, "title": "Docs", "url": "https://docs.google.com/document/d/1", "group": "Productivity", "active": false, "pinned": false, "audible": false },
+        { "id": 14, "title": "Figma", "url": "https://figma.com/file/1", "group": "Design", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [
+        { "name": "Productivity", "tabIds": [11, 12, 13] },
+        { "name": "Design", "tabIds": [14] }
+      ],
+      "behaviorSummary": {
+        "urls": {
+          "https://mail.google.com/mail/u/0/": { "minutesSinceLastActive": 1, "visits24h": 15, "avgReturnMinutes": 6, "regretCount": 0, "safeSleepCount": 0 },
+          "https://calendar.google.com/calendar": { "minutesSinceLastActive": 8, "visits24h": 9, "avgReturnMinutes": 17, "regretCount": 1, "safeSleepCount": 0 },
+          "https://docs.google.com/document/d/1": { "minutesSinceLastActive": 12, "visits24h": 8, "avgReturnMinutes": 21, "regretCount": 1, "safeSleepCount": 0 },
+          "https://figma.com/file/1": { "minutesSinceLastActive": 32, "visits24h": 5, "avgReturnMinutes": 35, "regretCount": 2, "safeSleepCount": 0 }
+        }
+      },
+      "recentActivations": [{ "url": "https://mail.google.com/mail/u/0/", "group": "Productivity" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "expected": {
+        "sleepCandidates": [],
+        "protectedTabs": ["https://mail.google.com/mail/u/0/", "https://calendar.google.com/calendar", "https://docs.google.com/document/d/1", "https://figma.com/file/1"],
+        "contextWake": { "triggerUrl": "https://calendar.google.com/calendar", "shouldWakeGroups": ["Productivity"] },
+        "benchmarkNotes": "Agent should be more conservative than a fixed inactivity rule."
+      }
+    },
+    {
+      "id": "research_sprawl",
+      "name": "Research Sprawl",
+      "goal": "Sleep stale research tabs while keeping the main doc and search awake.",
+      "category": "sleep",
+      "currentSession": { "timeOfDay": 21, "dayOfWeek": 0, "openTabCount": 5, "asleepTabCount": 0, "activeGroup": "Research" },
+      "openTabs": [
+        { "id": 21, "title": "Main search", "url": "https://google.com/search?q=ai", "group": "Research", "active": true, "pinned": false, "audible": false },
+        { "id": 22, "title": "Primary doc", "url": "https://docs.google.com/document/d/research", "group": "Research", "active": false, "pinned": false, "audible": false },
+        { "id": 23, "title": "Paper 1", "url": "https://arxiv.org/abs/1", "group": "Research", "active": false, "pinned": false, "audible": false },
+        { "id": 24, "title": "Paper 2", "url": "https://arxiv.org/abs/2", "group": "Research", "active": false, "pinned": false, "audible": false },
+        { "id": 25, "title": "Paper 3", "url": "https://arxiv.org/abs/3", "group": "Research", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Research", "tabIds": [21, 22, 23, 24, 25] }],
+      "behaviorSummary": {
+        "urls": {
+          "https://google.com/search?q=ai": { "minutesSinceLastActive": 0, "visits24h": 4, "avgReturnMinutes": 20, "regretCount": 0, "safeSleepCount": 0 },
+          "https://docs.google.com/document/d/research": { "minutesSinceLastActive": 5, "visits24h": 5, "avgReturnMinutes": 15, "regretCount": 0, "safeSleepCount": 0 },
+          "https://arxiv.org/abs/1": { "minutesSinceLastActive": 38, "visits24h": 1, "avgReturnMinutes": 240, "regretCount": 0, "safeSleepCount": 1 },
+          "https://arxiv.org/abs/2": { "minutesSinceLastActive": 54, "visits24h": 1, "avgReturnMinutes": 360, "regretCount": 0, "safeSleepCount": 2 },
+          "https://arxiv.org/abs/3": { "minutesSinceLastActive": 71, "visits24h": 1, "avgReturnMinutes": 400, "regretCount": 0, "safeSleepCount": 2 }
+        }
+      },
+      "recentActivations": [{ "url": "https://google.com/search?q=ai", "group": "Research" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "expected": {
+        "sleepCandidates": ["https://arxiv.org/abs/1", "https://arxiv.org/abs/2", "https://arxiv.org/abs/3"],
+        "protectedTabs": ["https://google.com/search?q=ai", "https://docs.google.com/document/d/research"],
+        "contextWake": { "triggerUrl": "https://google.com/search?q=ai", "shouldWakeGroups": ["Research"] },
+        "benchmarkNotes": "Good scenario for measuring memory benefit with low interruption."
+      }
+    },
+    {
+      "id": "media_audible_safety",
+      "name": "Media Audible Safety",
+      "goal": "Never auto-sleep an audible tab.",
+      "category": "safety",
+      "currentSession": { "timeOfDay": 16, "dayOfWeek": 3, "openTabCount": 2, "asleepTabCount": 0, "activeGroup": "Reading" },
+      "openTabs": [
+        { "id": 31, "title": "YouTube video", "url": "https://youtube.com/watch?v=1", "group": "Media", "active": false, "pinned": false, "audible": true },
+        { "id": 32, "title": "Article", "url": "https://blog.example.com/post", "group": "Reading", "active": true, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Media", "tabIds": [31] }, { "name": "Reading", "tabIds": [32] }],
+      "behaviorSummary": { "urls": { "https://youtube.com/watch?v=1": { "minutesSinceLastActive": 44, "visits24h": 1 }, "https://blog.example.com/post": { "minutesSinceLastActive": 0, "visits24h": 1 } } },
+      "recentActivations": [{ "url": "https://blog.example.com/post", "group": "Reading" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "expected": {
+        "sleepCandidates": [],
+        "protectedTabs": ["https://youtube.com/watch?v=1", "https://blog.example.com/post"],
+        "contextWake": { "triggerUrl": "https://blog.example.com/post", "shouldWakeGroups": [] },
+        "benchmarkNotes": "Safety case."
+      }
+    },
+    {
+      "id": "pinned_tab_safety",
+      "name": "Pinned Tab Safety",
+      "goal": "Pinned tabs must never be auto-slept.",
+      "category": "safety",
+      "currentSession": { "timeOfDay": 11, "dayOfWeek": 4, "openTabCount": 2, "asleepTabCount": 0, "activeGroup": "Work" },
+      "openTabs": [
+        { "id": 41, "title": "Slack", "url": "https://slack.com/app", "group": "Work", "active": false, "pinned": true, "audible": false },
+        { "id": 42, "title": "Confluence", "url": "https://wiki.example.com/page", "group": "Work", "active": true, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Work", "tabIds": [41, 42] }],
+      "behaviorSummary": { "urls": { "https://slack.com/app": { "minutesSinceLastActive": 55, "visits24h": 10 }, "https://wiki.example.com/page": { "minutesSinceLastActive": 0, "visits24h": 4 } } },
+      "recentActivations": [{ "url": "https://wiki.example.com/page", "group": "Work" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "expected": {
+        "sleepCandidates": [],
+        "protectedTabs": ["https://slack.com/app", "https://wiki.example.com/page"],
+        "contextWake": { "triggerUrl": "https://wiki.example.com/page", "shouldWakeGroups": [] },
+        "benchmarkNotes": "Pinned tabs must be outside the candidate set."
+      }
+    },
+    {
+      "id": "recent_activity_safety",
+      "name": "Recent Activity Safety",
+      "goal": "Recently active tabs must not be auto-slept.",
+      "category": "safety",
+      "currentSession": { "timeOfDay": 13, "dayOfWeek": 1, "openTabCount": 2, "asleepTabCount": 0, "activeGroup": "Reading" },
+      "openTabs": [
+        { "id": 51, "title": "Article A", "url": "https://site.example.com/a", "group": "Reading", "active": false, "pinned": false, "audible": false },
+        { "id": 52, "title": "Article B", "url": "https://site.example.com/b", "group": "Reading", "active": true, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Reading", "tabIds": [51, 52] }],
+      "behaviorSummary": { "urls": { "https://site.example.com/a": { "minutesSinceLastActive": 4, "visits24h": 1 }, "https://site.example.com/b": { "minutesSinceLastActive": 0, "visits24h": 1 } } },
+      "recentActivations": [{ "url": "https://site.example.com/a", "group": "Reading" }, { "url": "https://site.example.com/b", "group": "Reading" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "expected": {
+        "sleepCandidates": [],
+        "protectedTabs": ["https://site.example.com/a", "https://site.example.com/b"],
+        "contextWake": { "triggerUrl": "https://site.example.com/b", "shouldWakeGroups": [] },
+        "benchmarkNotes": "Recent inactivity window should win over low frequency."
+      }
+    },
+    {
+      "id": "frequent_tab_protection",
+      "name": "Frequent Tab Protection",
+      "goal": "Frequent tabs should be very hard to auto-sleep.",
+      "category": "safety",
+      "currentSession": { "timeOfDay": 9, "dayOfWeek": 2, "openTabCount": 2, "asleepTabCount": 0, "activeGroup": "Ops" },
+      "openTabs": [
+        { "id": 61, "title": "Admin dashboard", "url": "https://app.example.com/admin", "group": "Ops", "active": false, "pinned": false, "audible": false },
+        { "id": 62, "title": "Status page", "url": "https://status.example.com/", "group": "Ops", "active": true, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Ops", "tabIds": [61, 62] }],
+      "behaviorSummary": { "urls": { "https://app.example.com/admin": { "minutesSinceLastActive": 27, "visits24h": 8, "regretCount": 1 }, "https://status.example.com/": { "minutesSinceLastActive": 0, "visits24h": 4 } } },
+      "recentActivations": [{ "url": "https://status.example.com/", "group": "Ops" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "expected": {
+        "sleepCandidates": [],
+        "protectedTabs": ["https://app.example.com/admin", "https://status.example.com/"],
+        "contextWake": { "triggerUrl": "https://status.example.com/", "shouldWakeGroups": [] },
+        "benchmarkNotes": "Good check against the fixed-threshold baseline."
+      }
+    },
+    {
+      "id": "explicit_protected_context",
+      "name": "Explicit Protected Context",
+      "goal": "User-protected groups override local scoring.",
+      "category": "safety",
+      "currentSession": { "timeOfDay": 15, "dayOfWeek": 3, "openTabCount": 2, "asleepTabCount": 0, "activeGroup": "Finance" },
+      "openTabs": [
+        { "id": 71, "title": "Budget Sheet", "url": "https://sheets.google.com/budget", "group": "Finance", "active": false, "pinned": false, "audible": false },
+        { "id": 72, "title": "Bank portal", "url": "https://bank.example.com/", "group": "Finance", "active": true, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Finance", "tabIds": [71, 72] }],
+      "behaviorSummary": { "urls": { "https://sheets.google.com/budget": { "minutesSinceLastActive": 50, "visits24h": 2 }, "https://bank.example.com/": { "minutesSinceLastActive": 0, "visits24h": 1 } } },
+      "recentActivations": [{ "url": "https://bank.example.com/", "group": "Finance" }],
+      "protectedContexts": { "urls": [], "groups": ["Finance"] },
+      "expected": {
+        "sleepCandidates": [],
+        "protectedTabs": ["https://sheets.google.com/budget", "https://bank.example.com/"],
+        "contextWake": { "triggerUrl": "https://bank.example.com/", "shouldWakeGroups": [] },
+        "benchmarkNotes": "Explicit protection must dominate policy scoring."
+      }
+    },
+    {
+      "id": "regret_history_tab",
+      "name": "Regret History Tab",
+      "goal": "Repeated regret should reduce future sleep probability.",
+      "category": "feedback",
+      "currentSession": { "timeOfDay": 17, "dayOfWeek": 4, "openTabCount": 2, "asleepTabCount": 0, "activeGroup": "Design" },
+      "openTabs": [
+        { "id": 81, "title": "Figma file", "url": "https://figma.com/file/main", "group": "Design", "active": false, "pinned": false, "audible": false },
+        { "id": 82, "title": "Notion project", "url": "https://notion.so/project", "group": "Design", "active": true, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Design", "tabIds": [81, 82] }],
+      "behaviorSummary": { "urls": { "https://figma.com/file/main": { "minutesSinceLastActive": 28, "visits24h": 4, "avgReturnMinutes": 22, "regretCount": 4, "safeSleepCount": 0 }, "https://notion.so/project": { "minutesSinceLastActive": 0, "visits24h": 6 } } },
+      "recentActivations": [{ "url": "https://notion.so/project", "group": "Design" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "expected": {
+        "sleepCandidates": [],
+        "protectedTabs": ["https://figma.com/file/main", "https://notion.so/project"],
+        "contextWake": { "triggerUrl": "https://notion.so/project", "shouldWakeGroups": ["Design"] },
+        "benchmarkNotes": "Regret history should suppress aggressive sleep."
+      }
+    },
+    {
+      "id": "context_wake_success",
+      "name": "Context Wake Success",
+      "goal": "Waking should restore slept sibling tabs for the same context.",
+      "category": "wake",
+      "currentSession": { "timeOfDay": 19, "dayOfWeek": 2, "openTabCount": 3, "asleepTabCount": 2, "activeGroup": "Engineering" },
+      "openTabs": [
+        { "id": 91, "title": "GitHub repo", "url": "https://github.com/org/repo", "group": "Engineering", "active": true, "pinned": false, "audible": false },
+        { "id": 92, "title": "Stack Overflow", "url": "https://stackoverflow.com/q/2", "group": "Engineering", "active": false, "pinned": false, "audible": false },
+        { "id": 93, "title": "Docs page", "url": "https://docs.example.com/api", "group": "Engineering", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Engineering", "tabIds": [91, 92, 93] }],
+      "behaviorSummary": { "urls": { "https://github.com/org/repo": { "minutesSinceLastActive": 0, "visits24h": 4 }, "https://stackoverflow.com/q/2": { "minutesSinceLastActive": 65, "visits24h": 2 }, "https://docs.example.com/api": { "minutesSinceLastActive": 72, "visits24h": 2 } } },
+      "recentActivations": [{ "url": "https://github.com/org/repo", "group": "Engineering" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "expected": {
+        "sleepCandidates": [],
+        "protectedTabs": ["https://github.com/org/repo"],
+        "contextWake": {
+          "triggerUrl": "https://github.com/org/repo",
+          "shouldWakeGroups": ["Engineering"],
+          "shouldWakeUrls": ["https://stackoverflow.com/q/2", "https://docs.example.com/api"]
+        },
+        "benchmarkNotes": "Positive wake case."
+      }
+    },
+    {
+      "id": "context_wake_noop",
+      "name": "Context Wake No-op",
+      "goal": "No wake should happen when there are no slept siblings in the active context.",
+      "category": "wake",
+      "currentSession": { "timeOfDay": 20, "dayOfWeek": 2, "openTabCount": 2, "asleepTabCount": 1, "activeGroup": "Reading" },
+      "openTabs": [
+        { "id": 101, "title": "Blog home", "url": "https://blog.example.com/", "group": "Reading", "active": true, "pinned": false, "audible": false },
+        { "id": 102, "title": "Old doc", "url": "https://docs.example.com/old", "group": "Archive", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Reading", "tabIds": [101] }, { "name": "Archive", "tabIds": [102] }],
+      "behaviorSummary": { "urls": { "https://blog.example.com/": { "minutesSinceLastActive": 0 }, "https://docs.example.com/old": { "minutesSinceLastActive": 200, "safeSleepCount": 3 } } },
+      "recentActivations": [{ "url": "https://blog.example.com/", "group": "Reading" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "expected": {
+        "sleepCandidates": [],
+        "protectedTabs": ["https://blog.example.com/"],
+        "contextWake": { "triggerUrl": "https://blog.example.com/", "shouldWakeGroups": [] },
+        "benchmarkNotes": "Wake must stay scoped."
+      }
+    },
+    {
+      "id": "mixed_safe_sleep_batch",
+      "name": "Mixed Safe Sleep Batch",
+      "goal": "Select a batch of low-risk tabs while preserving the active core.",
+      "category": "sleep",
+      "currentSession": { "timeOfDay": 22, "dayOfWeek": 6, "openTabCount": 5, "asleepTabCount": 0, "activeGroup": "Writing" },
+      "openTabs": [
+        { "id": 111, "title": "Draft doc", "url": "https://docs.google.com/document/d/draft", "group": "Writing", "active": true, "pinned": false, "audible": false },
+        { "id": 112, "title": "Reference 1", "url": "https://example.com/ref1", "group": "Writing", "active": false, "pinned": false, "audible": false },
+        { "id": 113, "title": "Reference 2", "url": "https://example.com/ref2", "group": "Writing", "active": false, "pinned": false, "audible": false },
+        { "id": 114, "title": "Shopping item", "url": "https://shop.example.com/item", "group": "Shopping", "active": false, "pinned": false, "audible": false },
+        { "id": 115, "title": "Recipe", "url": "https://food.example.com/recipe", "group": "Personal", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Writing", "tabIds": [111, 112, 113] }, { "name": "Shopping", "tabIds": [114] }, { "name": "Personal", "tabIds": [115] }],
+      "behaviorSummary": {
+        "urls": {
+          "https://docs.google.com/document/d/draft": { "minutesSinceLastActive": 0, "visits24h": 4 },
+          "https://example.com/ref1": { "minutesSinceLastActive": 36, "visits24h": 1, "safeSleepCount": 2 },
+          "https://example.com/ref2": { "minutesSinceLastActive": 42, "visits24h": 1, "safeSleepCount": 2 },
+          "https://shop.example.com/item": { "minutesSinceLastActive": 70, "visits24h": 1, "safeSleepCount": 3 },
+          "https://food.example.com/recipe": { "minutesSinceLastActive": 58, "visits24h": 1, "safeSleepCount": 3 }
+        }
+      },
+      "recentActivations": [{ "url": "https://docs.google.com/document/d/draft", "group": "Writing" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "expected": {
+        "sleepCandidates": ["https://example.com/ref1", "https://example.com/ref2", "https://shop.example.com/item", "https://food.example.com/recipe"],
+        "protectedTabs": ["https://docs.google.com/document/d/draft"],
+        "contextWake": { "triggerUrl": "https://docs.google.com/document/d/draft", "shouldWakeGroups": ["Writing"] },
+        "benchmarkNotes": "Useful for checking batch behavior and estimated savings."
+      }
+    },
+    {
+      "id": "assistant_rule_agent_comparison",
+      "name": "Assistant vs Rule vs Agent",
+      "goal": "Compare all three systems on one realistic case.",
+      "category": "benchmark",
+      "currentSession": { "timeOfDay": 18, "dayOfWeek": 2, "openTabCount": 5, "asleepTabCount": 0, "activeGroup": "Strategy" },
+      "openTabs": [
+        { "id": 121, "title": "Deck", "url": "https://slides.example.com/deck", "group": "Strategy", "active": true, "pinned": false, "audible": false },
+        { "id": 122, "title": "Spreadsheet", "url": "https://sheets.example.com/model", "group": "Strategy", "active": false, "pinned": false, "audible": false },
+        { "id": 123, "title": "Market article", "url": "https://news.example.com/market", "group": "Research", "active": false, "pinned": false, "audible": false },
+        { "id": 124, "title": "Case note", "url": "https://docs.example.com/case", "group": "Research", "active": false, "pinned": false, "audible": false },
+        { "id": 125, "title": "Travel booking", "url": "https://travel.example.com/", "group": "Personal", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Strategy", "tabIds": [121, 122] }, { "name": "Research", "tabIds": [123, 124] }, { "name": "Personal", "tabIds": [125] }],
+      "behaviorSummary": {
+        "urls": {
+          "https://slides.example.com/deck": { "minutesSinceLastActive": 0, "visits24h": 3 },
+          "https://sheets.example.com/model": { "minutesSinceLastActive": 6, "visits24h": 4 },
+          "https://news.example.com/market": { "minutesSinceLastActive": 49, "visits24h": 1, "safeSleepCount": 2 },
+          "https://docs.example.com/case": { "minutesSinceLastActive": 43, "visits24h": 1, "safeSleepCount": 2 },
+          "https://travel.example.com/": { "minutesSinceLastActive": 95, "visits24h": 1, "safeSleepCount": 3 }
+        }
+      },
+      "recentActivations": [{ "url": "https://slides.example.com/deck", "group": "Strategy" }, { "url": "https://sheets.example.com/model", "group": "Strategy" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "actionHistory": [
+        { "type": "auto_sleep", "targetUrl": "https://news.example.com/market", "confidence": 0.88, "outcome": "safe_after_15m" },
+        { "type": "auto_sleep", "targetUrl": "https://docs.example.com/case", "confidence": 0.82, "outcome": "regret_reopen_within_5m" }
+      ],
+      "feedbackFixtures": [
+        { "type": "reopen_within_5m", "targetUrl": "https://docs.example.com/case" },
+        { "type": "reopen_within_15m", "targetUrl": "https://news.example.com/market" },
+        { "type": "undo_after_auto_sleep", "targetUrl": "https://docs.example.com/case" },
+        { "type": "explicit_good", "targetUrl": "https://news.example.com/market" },
+        { "type": "explicit_bad", "targetUrl": "https://docs.example.com/case" }
+      ],
+      "expected": {
+        "sleepCandidates": ["https://news.example.com/market", "https://docs.example.com/case", "https://travel.example.com/"],
+        "protectedTabs": ["https://slides.example.com/deck", "https://sheets.example.com/model"],
+        "contextWake": { "triggerUrl": "https://slides.example.com/deck", "shouldWakeGroups": ["Strategy"] },
+        "benchmarkNotes": "Agent should preserve active strategy tabs and use regret feedback to stop repeating bad sleeps."
+      }
+    }
+  ]
+}

@@ -278,7 +278,7 @@ function createGroupElement(group, groupIndex, tabMap, frequentUrls, isAsleep, a
     const tab = tabMap[tabId];
     if (!tab) continue;
 
-    const isFrequent = frequentUrls.has(tab.url);
+    const isFrequent = frequentUrls.has(normalizeUrl(tab.url));
     const wasSlept = isAsleep && asleepTabIds.includes(tabId);
 
     const item = document.createElement("li");
@@ -324,8 +324,8 @@ function createGroupElement(group, groupIndex, tabMap, frequentUrls, isAsleep, a
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 async function sleepGroup(group, tabMap, frequentUrls, groupIndex, groupEl, sleepBtn, wakeBtn, statusBadge, list, asleepGroups) {
-  const frequentInGroup = group.tabIds.filter(id => tabMap[id] && frequentUrls.has(tabMap[id].url));
-  const nonFrequent = group.tabIds.filter(id => tabMap[id] && !frequentUrls.has(tabMap[id].url));
+  const frequentInGroup = group.tabIds.filter(id => tabMap[id] && frequentUrls.has(normalizeUrl(tabMap[id].url)));
+  const nonFrequent = group.tabIds.filter(id => tabMap[id] && !frequentUrls.has(normalizeUrl(tabMap[id].url)));
 
   let toSleep = nonFrequent;
 
@@ -393,6 +393,8 @@ async function sleepGroup(group, tabMap, frequentUrls, groupIndex, groupEl, slee
 
 async function wakeGroup(groupIndex, groupEl, sleepBtn, wakeBtn, statusBadge, list, asleepGroups) {
   const tabIds = asleepGroups[groupIndex] || [];
+  const data = await chrome.storage.local.get(STORAGE_GROUPS_KEY);
+  const cached = data[STORAGE_GROUPS_KEY];
 
   for (const tabId of tabIds) {
     try { await chrome.tabs.reload(tabId); }
@@ -405,6 +407,15 @@ async function wakeGroup(groupIndex, groupEl, sleepBtn, wakeBtn, statusBadge, li
 
   // Log wake event
   await logEvent("woken", { tabCount: tabIds.length, groupIndex });
+
+  if (cached?.tabMap) {
+    for (const tabId of tabIds) {
+      const url = cached.tabMap[tabId]?.url;
+      if (url) {
+        await markAutoSleepOutcome(url, "manual_wake_after_sleep");
+      }
+    }
+  }
 
   // Restore UI
   groupEl.classList.remove("group-asleep");
@@ -421,7 +432,7 @@ async function closeGroup(group, tabMap, frequentUrls, groupEl) {
   // Build URL → real tab ID map
   const urlToRealId = {};
   for (const t of realTabs) {
-    if (t.url) urlToRealId[t.url] = t.id;
+    if (t.url) urlToRealId[normalizeUrl(t.url)] = t.id;
   }
 
   // Map group's cached tabs to real current tab IDs via URL matching
@@ -430,8 +441,8 @@ async function closeGroup(group, tabMap, frequentUrls, groupEl) {
     .filter(Boolean);
 
   const frequentUrls_set = frequentUrls;
-  const frequentGroupUrls = groupUrls.filter(url => frequentUrls_set.has(url));
-  const nonFrequentUrls   = groupUrls.filter(url => !frequentUrls_set.has(url));
+  const frequentGroupUrls = groupUrls.filter(url => frequentUrls_set.has(normalizeUrl(url)));
+  const nonFrequentUrls   = groupUrls.filter(url => !frequentUrls_set.has(normalizeUrl(url)));
 
   let urlsToClose = nonFrequentUrls;
   let closeAll = false;
@@ -452,7 +463,7 @@ async function closeGroup(group, tabMap, frequentUrls, groupEl) {
   if (urlsToClose.length === 0) return;
 
   // Close by real current tab IDs (matched by URL)
-  const idsToClose = urlsToClose.map(url => urlToRealId[url]).filter(Boolean);
+  const idsToClose = urlsToClose.map(url => urlToRealId[normalizeUrl(url)]).filter(Boolean);
   console.log("Tab Agent: closing tab IDs", idsToClose, "for URLs", urlsToClose);
 
   if (idsToClose.length > 0) {

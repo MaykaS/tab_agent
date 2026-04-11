@@ -7,7 +7,8 @@
   "permissions": [
     "tabs",
     "storage",
-    "processes"
+    "processes",
+    "alarms"
   ],
   "host_permissions": [
     "https://tabagentweb-on16.vercel.app/*",
@@ -16,7 +17,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["stats.html", "stats.js", "storage.js"],
+      "resources": ["stats.html", "stats.js", "storage.js", "agent.js"],
       "matches": ["<all_urls>"]
     }
   ],

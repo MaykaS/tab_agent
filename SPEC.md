@@ -2,112 +2,207 @@
 
 ## Overview
 
-Tab Agent is a Chrome extension that uses on-device AI (Gemini Nano) to group open tabs by topic, protect frequent tabs from risky bulk actions, and let the user act on entire groups with one click.
+Tab Agent is a Chrome extension that combines:
 
-This spec covers the implemented MVP plus the planned agentic follow-up.
+- local on-device tab grouping with Gemini Nano
+- conservative autonomous tab management
+- feedback-driven behavior learning
+- OpenAI-assisted policy summaries and tuning recommendations
+
+The extension remains browser-only in this version. It does not manage full system CPU or memory yet.
 
 ---
 
-## MVP feature set
-
-### Implemented
+## Current feature set
 
 | # | Feature | Description |
 |---|---------|-------------|
-| F1 | Tab observation | Read open tabs and filter out Chrome-internal pages |
-| F2 | AI grouping | Send tab metadata to Gemini Nano and receive named groups |
-| F3 | Group display | Show grouped tabs in the popup |
-| F4 | Sleep group | Discard tabs in a group, with confirmation for frequent tabs |
-| F5 | Close group | Close tabs in a group, with confirmation for frequent tabs |
-| F6 | Wake group | Reload previously discarded tabs in a group |
-| F7 | Visit history logging | Record `{url, timestamp}` on tab activation |
-| F8 | Frequent tab protection | Badge and protect URLs visited 3+ times in the last 24 hours |
-| F9 | Persistent groups | Cache groups in local storage for instant reopen |
-| F10 | Asleep state persistence | Keep wake/sleep state across popup reopen |
-| F11 | Stats page | Show estimated total memory, saved memory, group counts, per-group memory, and awake/asleep state |
-| F12 | Grouping quality rating | Let the user rate each group 1-5 and save the results locally |
-| F13 | Study submission | Auto-generate participant ID, collect three self-report answers, and submit an anonymized study snapshot |
-
-### Out of scope for MVP
-
-- Autonomous background actions
-- Continuous decision loop
-- Learned behavioral model
-- Settings page
-- Real per-tab memory/CPU metrics on Chrome stable
+| F1 | Tab observation | Read open tabs and ignore Chrome-internal pages |
+| F2 | AI grouping | Group tabs by topic with Gemini Nano |
+| F3 | Group display | Show named groups in the popup |
+| F4 | Manual sleep | Discard tabs in a group with frequent-tab protection |
+| F5 | Manual close | Close tabs in a group with frequent-tab protection |
+| F6 | Manual wake | Reload previously discarded tabs in a group |
+| F7 | Visit logging | Record `{url, timestamp}` on tab activation |
+| F8 | Frequent-tab protection | Protect URLs visited 3+ times in the last 24 hours |
+| F9 | Persistent groups | Cache groups and asleep state in local storage |
+| F10 | Stats page | Show estimated memory totals, group state, ratings, and study submission |
+| F11 | Autonomous sleep | Auto-sleep high-confidence low-need tabs |
+| F12 | Context wake | Wake slept tabs when the user re-enters a related group/context |
+| F13 | Action feed | Show autonomous actions, explanations, undo, protect, and explicit feedback |
+| F14 | Feedback loop | Learn from reopen, undo, protect, and explicit good/bad signals |
+| F15 | OpenAI policy summary | Generate structured policy summaries and recommendations from behavioral telemetry |
 
 ---
 
-## Data the extension stores or sends
+## Agent policy
 
-| Data | Location | Retention |
-|------|----------|-----------|
-| Live tab titles + URLs | In memory during popup/stats usage | Cleared on close |
-| Visit history | `chrome.storage.local` key `visits` | Rolling 7 days |
-| Cached groups + tab map | `chrome.storage.local` key `cachedGroups` | Until regroup/close |
-| Asleep state | `chrome.storage.local` key `asleepGroups` | Until wake/regroup |
-| Estimated memory saved | `chrome.storage.local` key `memorySaved` | Persistent |
-| Rating history | `chrome.storage.local` key `ratingHistory` | Persistent |
-| Participant ID | `chrome.storage.local` key `participantId` | Persistent |
-| Study responses | `chrome.storage.local` key `studyResponses` | Persistent |
+### Prediction target
 
-Gemini Nano grouping runs locally on-device.
+The local policy predicts:
 
-Study submissions leave the device only when the user explicitly clicks submit in the Stats page.
+- `willNeedInNext15Min`
+
+### Conservative safety rules
+
+The agent should not auto-sleep:
+
+- pinned tabs
+- very recently active tabs
+- frequent/protected tabs
+- audible tabs when detectable
+
+### Allowed autonomous actions in v1
+
+- auto-sleep
+- context wake
+
+### Disallowed autonomous actions in v1
+
+- autonomous close
+- aggressive speculative wake
+- system-wide memory management outside the browser
 
 ---
 
-## Study snapshot contents
+## Feedback model
 
-Each submitted study snapshot can include:
+### Primary feedback signals
 
-- `participantId`
-- `sessionLog`
-- `visitCount`
-- `tabCount`
-- `openTabCount`
-- `groupCount`
-- `asleepGroupCount`
-- `asleepTabCount`
-- `ratingCount`
-- `avgRating`
-- `memorySavedEstimateMb`
-- `totalTabMemoryEstimateMb`
-- `memoryMetricsAreEstimated`
-- `groups[]` with per-group details:
-  - `name`
-  - `tabCount`
-  - `openTabCount`
-  - `isAsleep`
-  - `estimatedMemoryMb`
-  - `estimatedSavedMemoryMb`
-  - `rating`
-  - `tabTitlesPreview`
-- `studyResponses`:
-  - `groupingUseful`
-  - `trustSleepClose`
-  - `wouldUseInRealBrowsing`
+- reopen within 5 minutes after auto-sleep
+- reopen within 15 minutes after auto-sleep
+- undo
+- manual wake shortly after sleep
+- repeated protect behavior
+
+### Secondary feedback signals
+
+- explicit `Good`
+- explicit `Bad`
+
+### Stored feedback outputs
+
+- regret count
+- safe-sleep count
+- protection count
+- action outcome history
+
+---
+
+## Data stored or sent
+
+| Data | Location | Notes |
+|------|----------|-------|
+| Visit history | `chrome.storage.local` | Rolling 7-day window |
+| Cached groups | `chrome.storage.local` | Used for reopen and context wake |
+| Asleep state | `chrome.storage.local` | Group UI persistence |
+| URL behavior model | `chrome.storage.local` | Recency, frequency, affinity, regret, safe-sleep counts |
+| Group behavior model | `chrome.storage.local` | Group-level activation and regret/safety patterns |
+| Agent policy | `chrome.storage.local` | Thresholds and safeguards |
+| Agent action log | `chrome.storage.local` | Auto-sleep / auto-wake events and explanations |
+| Feedback log | `chrome.storage.local` | Undo / regret / protect / explicit feedback |
+| Protected contexts | `chrome.storage.local` | Per-URL and per-group user protections |
+| Study submissions | Neon Postgres | Via `/api/collect` |
+| OpenAI summaries | Local storage + website API | Structured recommendations only |
+
+---
+
+## OpenAI context design
+
+OpenAI receives structured summaries, not raw browsing dumps.
+
+### Context blocks
+
+1. **Current session context**
+- time/day
+- open tab count
+- asleep tab count
+- active context
+- recent activations
+
+2. **Behavior summary**
+- per-tab/group recency
+- frequency
+- average revisit interval
+- hour/day affinity
+- co-activation
+- regret / safety / protection counts
+
+3. **Recent action history**
+- recent autonomous actions
+- explanations
+- confidence
+- outcomes
+
+### Expected OpenAI output
+
+- short summary
+- threshold adjustment suggestions
+- protected context suggestions
+- explanation copy
+
+OpenAI does not directly control browser actions in this version.
+
+---
+
+## Benchmark framing
+
+### Baseline A
+- fixed inactivity threshold
+- no personalization
+
+### Baseline B
+- current assistant MVP
+- AI grouping, manual execution
+
+### Experimental
+- personalized autonomous browser agent
+
+### Core success metrics
+
+- estimated memory saved
+- autonomous sleep count
+- autonomous wake count
+- reopen/regret count
+- undo rate
+- explicit bad-feedback rate
+- trust / usefulness / willingness to use
+
+---
+
+## Test-set expectations
+
+The extension repo includes a reusable scenario package under `agent_test_set/`.
+
+The first test set should cover:
+
+- sleep decisions
+- context wake decisions
+- hard safety constraints
+- regret outcomes
+- explicit feedback outcomes
+- rule vs assistant vs agent comparison cases
 
 ---
 
 ## Acceptance criteria
 
-- Extension installs and runs from an unpacked folder
-- Popup groups tabs or falls back safely instead of crashing
-- Frequent tabs are visibly badged and protected by confirmation
-- Sleep/wake/close actions work on group-level controls
-- Stats page is accessible from the popup
-- Stats page shows estimated total memory, per-group memory, counts, and group state
-- Agreement rating form saves correctly
-- Stats page can submit an anonymized study snapshot
-- Website backend stores submissions in Neon Postgres
+- Extension installs and runs from unpacked folder
+- Popup still supports manual grouping and group actions
+- Background worker runs a periodic autonomous sleep cycle
+- Protected/frequent/recent tabs are not auto-slept
+- Activating a related tab can context-wake slept sibling tabs
+- Stats page shows recent autonomous actions and feedback controls
+- Undo / protect / good / bad are stored and reflected in telemetry
+- Study submissions include autonomous metrics and baseline comparison data
+- Website stores and displays autonomous telemetry
+- OpenAI summary endpoint returns structured recommendations or graceful fallback output
 
 ---
 
 ## Known limitations
 
-- Requires Gemini Nano flag setup in Chrome
-- Grouping quality depends on Gemini Nano output
-- Memory values in Stats and study payload are estimated on Chrome stable
-- No autonomous actions in the MVP
-- No researcher-observed timing or Task Manager memory is collected automatically
+- Memory values are estimated on Chrome stable
+- Policy is conservative and intentionally narrow in v1
+- OpenAI is advisory, not the direct control policy
+- Full computer memory management is out of scope for this version
