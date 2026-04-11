@@ -1,73 +1,70 @@
-# SPEC.md - Tab Agent Chrome Extension
+# SPEC.md - Tab Agent
 
-## Overview
+## One-line spec
 
 Tab Agent is a Chrome extension that combines:
 
-- local on-device tab grouping with Gemini Nano
-- conservative autonomous tab management
-- feedback-driven behavior learning
-- OpenAI-assisted policy summaries and tuning recommendations
+- Gemini Nano tab grouping
+- local autonomous sleep/wake policy
+- feedback-driven learning
+- OpenAI-assisted summaries and tuning recommendations
 
-The extension remains browser-only in this version. It does not manage full system CPU or memory yet.
+This version is **browser-only**.  
+It does **not** yet manage full system CPU or memory.
 
----
+## Product status
 
-## Current feature set
+### Assistant layer
 
-| # | Feature | Description |
-|---|---------|-------------|
-| F1 | Tab observation | Read open tabs and ignore Chrome-internal pages |
-| F2 | AI grouping | Group tabs by topic with Gemini Nano |
-| F3 | Group display | Show named groups in the popup |
-| F4 | Manual sleep | Discard tabs in a group with frequent-tab protection |
-| F5 | Manual close | Close tabs in a group with frequent-tab protection |
-| F6 | Manual wake | Reload previously discarded tabs in a group |
-| F7 | Visit logging | Record `{url, timestamp}` on tab activation |
-| F8 | Frequent-tab protection | Protect URLs visited 3+ times in the last 24 hours |
-| F9 | Persistent groups | Cache groups and asleep state in local storage |
-| F10 | Stats page | Show estimated memory totals, group state, ratings, and study submission |
-| F11 | Autonomous sleep | Auto-sleep high-confidence low-need tabs |
-| F12 | Context wake | Wake slept tabs when the user re-enters a related group/context |
-| F13 | Action feed | Show autonomous actions, explanations, undo, protect, and explicit feedback |
-| F14 | Feedback loop | Learn from reopen, undo, protect, and explicit good/bad signals |
-| F15 | OpenAI policy summary | Generate structured policy summaries and recommendations from behavioral telemetry |
+Already implemented:
 
----
+- read open tabs
+- group tabs by topic
+- cache groups
+- manual sleep / wake / close
+- frequent-tab protection
+- Stats page
+- grouping-quality ratings
+- study submission
 
-## Agent policy
+### Agentic layer
 
-### Prediction target
+Already implemented:
+
+- autonomous sleep
+- context wake
+- action log
+- undo
+- protect
+- explicit good/bad feedback
+- local behavior memory
+- OpenAI summary generation
+
+## Core prediction target
 
 The local policy predicts:
 
 - `willNeedInNext15Min`
 
-### Conservative safety rules
+## Safety rules
 
-The agent should not auto-sleep:
+The agent must not auto-sleep:
 
 - pinned tabs
 - very recently active tabs
-- frequent/protected tabs
+- frequent tabs
+- protected tabs or groups
 - audible tabs when detectable
 
-### Allowed autonomous actions in v1
+The agent must not autonomously:
 
-- auto-sleep
-- context wake
-
-### Disallowed autonomous actions in v1
-
-- autonomous close
-- aggressive speculative wake
-- system-wide memory management outside the browser
-
----
+- close tabs
+- aggressively speculative-wake tabs
+- manage memory outside the browser
 
 ## Feedback model
 
-### Primary feedback signals
+### Primary signals
 
 - reopen within 5 minutes after auto-sleep
 - reopen within 15 minutes after auto-sleep
@@ -75,90 +72,81 @@ The agent should not auto-sleep:
 - manual wake shortly after sleep
 - repeated protect behavior
 
-### Secondary feedback signals
+### Secondary signals
 
 - explicit `Good`
 - explicit `Bad`
 
-### Stored feedback outputs
+### Stored learning outputs
 
 - regret count
 - safe-sleep count
 - protection count
-- action outcome history
-
----
+- per-action outcome history
 
 ## Data stored or sent
 
-| Data | Location | Notes |
-|------|----------|-------|
-| Visit history | `chrome.storage.local` | Rolling 7-day window |
-| Cached groups | `chrome.storage.local` | Used for reopen and context wake |
-| Asleep state | `chrome.storage.local` | Group UI persistence |
-| URL behavior model | `chrome.storage.local` | Recency, frequency, affinity, regret, safe-sleep counts |
-| Group behavior model | `chrome.storage.local` | Group-level activation and regret/safety patterns |
+| Data | Location | Purpose |
+|------|----------|---------|
+| Visit history | `chrome.storage.local` | Recency/frequency learning |
+| Cached groups | `chrome.storage.local` | Group persistence and context wake |
+| Asleep state | `chrome.storage.local` | UI + wake behavior |
+| URL behavior model | `chrome.storage.local` | Per-tab learning state |
+| Group behavior model | `chrome.storage.local` | Per-context learning state |
 | Agent policy | `chrome.storage.local` | Thresholds and safeguards |
-| Agent action log | `chrome.storage.local` | Auto-sleep / auto-wake events and explanations |
-| Feedback log | `chrome.storage.local` | Undo / regret / protect / explicit feedback |
-| Protected contexts | `chrome.storage.local` | Per-URL and per-group user protections |
-| Study submissions | Neon Postgres | Via `/api/collect` |
-| OpenAI summaries | Local storage + website API | Structured recommendations only |
+| Agent action log | `chrome.storage.local` | Autonomous action feed |
+| Feedback log | `chrome.storage.local` | Undo/regret/protect/good/bad |
+| Protected contexts | `chrome.storage.local` | User overrides |
+| Study submissions | Neon Postgres | Research/admin analysis |
+| OpenAI summaries | local storage + web API | Advisory policy output |
 
----
+## OpenAI role
 
-## OpenAI context design
+OpenAI is **advisory only** in this version.
 
-OpenAI receives structured summaries, not raw browsing dumps.
+It does not directly control browser actions.
 
-### Context blocks
+### OpenAI input
 
-1. **Current session context**
-- time/day
-- open tab count
-- asleep tab count
-- active context
-- recent activations
+Structured summaries only:
 
-2. **Behavior summary**
-- per-tab/group recency
-- frequency
-- average revisit interval
-- hour/day affinity
-- co-activation
-- regret / safety / protection counts
+1. current session context
+2. behavior summary
+3. recent autonomous action history
 
-3. **Recent action history**
-- recent autonomous actions
-- explanations
-- confidence
-- outcomes
+### OpenAI output
 
-### Expected OpenAI output
-
-- short summary
-- threshold adjustment suggestions
-- protected context suggestions
+- summary
+- threshold suggestions
+- protected-context suggestions
 - explanation copy
 
-OpenAI does not directly control browser actions in this version.
-
----
-
-## Benchmark framing
+## Evaluation framing
 
 ### Baseline A
+
+Static rule-based tab management:
+
 - fixed inactivity threshold
 - no personalization
 
 ### Baseline B
-- current assistant MVP
-- AI grouping, manual execution
+
+Assistant MVP:
+
+- AI grouping
+- manual execution
 
 ### Experimental
-- personalized autonomous browser agent
 
-### Core success metrics
+Personalized autonomous agent:
+
+- local prediction
+- autonomous sleep
+- context wake
+- feedback loop
+
+## Success metrics
 
 - estimated memory saved
 - autonomous sleep count
@@ -166,15 +154,15 @@ OpenAI does not directly control browser actions in this version.
 - reopen/regret count
 - undo rate
 - explicit bad-feedback rate
-- trust / usefulness / willingness to use
-
----
+- usefulness
+- trust
+- willingness to use
 
 ## Test-set expectations
 
-The extension repo includes a reusable scenario package under `agent_test_set/`.
+The extension repo includes `agent_test_set/`.
 
-The first test set should cover:
+The reusable test set must cover:
 
 - sleep decisions
 - context wake decisions
@@ -183,26 +171,22 @@ The first test set should cover:
 - explicit feedback outcomes
 - rule vs assistant vs agent comparison cases
 
----
-
 ## Acceptance criteria
 
-- Extension installs and runs from unpacked folder
-- Popup still supports manual grouping and group actions
-- Background worker runs a periodic autonomous sleep cycle
-- Protected/frequent/recent tabs are not auto-slept
-- Activating a related tab can context-wake slept sibling tabs
-- Stats page shows recent autonomous actions and feedback controls
-- Undo / protect / good / bad are stored and reflected in telemetry
-- Study submissions include autonomous metrics and baseline comparison data
-- Website stores and displays autonomous telemetry
-- OpenAI summary endpoint returns structured recommendations or graceful fallback output
-
----
+- extension runs from an unpacked folder
+- popup still supports manual grouping and group actions
+- background worker runs a periodic autonomous cycle
+- protected/frequent/recent tabs are not auto-slept
+- activating a related tab can wake slept siblings
+- Stats page shows autonomous actions and feedback controls
+- undo / protect / good / bad are stored and surfaced
+- study submissions include autonomous metrics and baseline comparison data
+- website stores and displays autonomous telemetry
+- OpenAI summary endpoint returns structured output or safe fallback
 
 ## Known limitations
 
-- Memory values are estimated on Chrome stable
-- Policy is conservative and intentionally narrow in v1
-- OpenAI is advisory, not the direct control policy
-- Full computer memory management is out of scope for this version
+- memory values are estimated on Chrome stable
+- v1 policy is intentionally conservative
+- OpenAI is advisory, not the controller
+- full computer memory management is future scope

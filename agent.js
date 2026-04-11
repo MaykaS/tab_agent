@@ -15,7 +15,7 @@ function buildDayAffinity(counts, currentDay) {
 function buildSleepReason(features) {
   const reasons = [];
 
-  if (features.minutesSinceLastActive >= 45) {
+  if (typeof features.minutesSinceLastActive === "number" && features.minutesSinceLastActive >= 45) {
     reasons.push(`inactive for ${Math.round(features.minutesSinceLastActive)} min`);
   }
   if (features.visits24h <= 1) {
@@ -40,20 +40,32 @@ function buildWakeReason(groupName) {
   return "Woke related tabs because you re-entered a linked context.";
 }
 
+async function getGroupBehaviorSummary(groupName) {
+  if (!groupName) return {};
+  const data = await chrome.storage.local.get(GROUP_MODEL_KEY);
+  const groupModel = data[GROUP_MODEL_KEY] || {};
+  return groupModel[groupName] || {};
+}
+
 async function buildTabFeatures(tab, groupName, activeGroupName, policy) {
-  const [urlModelData, visits24h, protectedByUser] = await Promise.all([
+  const [urlModelData, visits24h, protectedByUser, groupSummary] = await Promise.all([
     chrome.storage.local.get(URL_MODEL_KEY),
     getVisitsForUrl(tab.url, 24),
     isProtectedContext(tab.url, groupName),
+    getGroupBehaviorSummary(groupName),
   ]);
 
   const urlModel = urlModelData[URL_MODEL_KEY] || {};
   const model = urlModel[normalizeUrl(tab.url)] || {};
   const timestamp = Date.now();
   const lastActiveAt = model.lastActiveAt || null;
-  const minutesSinceLastActive = lastActiveAt ? (timestamp - lastActiveAt) / 60000 : 999;
+  const minutesSinceLastActive = lastActiveAt ? (timestamp - lastActiveAt) / 60000 : null;
   const currentHour = new Date(timestamp).getHours();
   const currentDay = new Date(timestamp).getDay();
+  const groupLastActiveAt = groupSummary.lastActiveAt || null;
+  const groupMinutesSinceLastActive = groupLastActiveAt
+    ? (timestamp - groupLastActiveAt) / 60000
+    : null;
 
   return {
     normalizedUrl: normalizeUrl(tab.url),
@@ -69,15 +81,22 @@ async function buildTabFeatures(tab, groupName, activeGroupName, policy) {
     protectionCount: model.protectionCount || 0,
     activationCount: model.activationCount || 0,
     groupRecentlyActive: Boolean(activeGroupName && groupName && activeGroupName === groupName),
+    groupMinutesSinceLastActive,
+    groupProtectionCount: groupSummary.protectionCount || 0,
+    groupRegretCount: groupSummary.regretCount || 0,
+    groupSafeSleepCount: groupSummary.safeSleepCount || 0,
     protectedByUser,
     protectPinned: policy.protectPinnedTabs && Boolean(tab.pinned),
     protectAudible: policy.protectAudibleTabs && Boolean(tab.audible),
+    coldStart: !lastActiveAt,
   };
 }
 
 function scoreNeed(features, policy, frequentUrls) {
   if (features.protectedByUser) return 1;
   if (features.protectPinned || features.protectAudible) return 1;
+  if (features.coldStart) return 0.7;
+  if (features.groupProtectionCount > 0) return 0.85;
   if (features.minutesSinceLastActive <= policy.recentProtectMinutes) return 1;
   if (frequentUrls.has(features.normalizedUrl)) return 0.92;
 
@@ -86,15 +105,30 @@ function scoreNeed(features, policy, frequentUrls) {
   const patternScore = clamp(features.hourAffinity * 0.7 + features.dayAffinity * 0.3, 0, 1);
   const regretPenalty = clamp(features.regretCount / 4, 0, 0.35);
   const safeDiscount = clamp(features.safeSleepCount / 8, 0, 0.2);
-  const groupBonus = features.groupRecentlyActive ? 0.15 : 0;
+  const groupBonus =
+    features.groupRecentlyActive && features.minutesSinceLastActive !== null && features.minutesSinceLastActive <= 15
+      ? 0.22
+      : 0;
+  const groupRecentShield =
+    features.groupMinutesSinceLastActive !== null &&
+    features.groupMinutesSinceLastActive <= 10 &&
+    features.minutesSinceLastActive !== null &&
+    features.minutesSinceLastActive <= 20
+      ? 0.15
+      : 0;
+  const groupRegretPenalty = clamp(features.groupRegretCount / 4, 0, 0.2);
+  const groupSafeDiscount = clamp(features.groupSafeSleepCount / 8, 0, 0.1);
 
   const score = clamp(
     recencyScore * 0.4 +
       frequencyScore * 0.2 +
       patternScore * 0.15 +
       groupBonus +
+      groupRecentShield +
       regretPenalty -
-      safeDiscount,
+      safeDiscount +
+      groupRegretPenalty -
+      groupSafeDiscount,
     0,
     1
   );
@@ -114,12 +148,22 @@ async function decideAutonomousSleepCandidates(tabs, cached, policy) {
     if (!tab.url || tab.active) continue;
     const { groupName, groupIndex } = findGroupMatch(tab.url, cached);
     const features = await buildTabFeatures(tab, groupName, activeGroupName, policy);
+    const group = groupIndex >= 0 ? cached.groups[groupIndex] : null;
 
-    if (features.minutesSinceLastActive < policy.minInactiveMinutes) continue;
+    if (features.coldStart) continue;
+    if (features.minutesSinceLastActive !== null && features.minutesSinceLastActive < policy.minInactiveMinutes) continue;
     if (features.protectedByUser || features.protectPinned || features.protectAudible) continue;
 
     const needScore = scoreNeed(features, policy, frequentUrls);
     const confidence = clamp(1 - needScore, 0, 1);
+
+    if (group && group.tabIds.length === 1 && features.visits24h === 0) {
+      continue;
+    }
+
+    if (group && group.tabIds.length === 1 && features.safeSleepCount < 2) {
+      continue;
+    }
 
     if (needScore < policy.sleepThreshold) {
       candidates.push({

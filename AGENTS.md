@@ -1,24 +1,25 @@
-# AGENTS.md - Tab Agent Chrome Extension
+# AGENTS.md - Tab Agent
 
-## What makes this an agent
+## Plain definition
 
-Tab Agent is no longer just an AI-assisted popup. In the current direction, it has a real:
+Tab Agent is a **browser tab memory-management agent**.
 
-- **observe** loop
-- **predict** loop
-- **act** loop
-- **learn** loop
+In the current version, it:
 
-The key distinction is:
+- observes browser state
+- predicts near-term tab need
+- acts autonomously in a limited, conservative way
+- remembers outcomes and feedback
 
-- the MVP assistant grouped tabs and waited for the user to act
-- the agentic version autonomously sleeps low-need tabs and context-wakes related tabs
+This is enough to make it **agentic at the browser-tab level**.
 
-This version is intentionally conservative. It is browser-only, explainable, and benchmarkable.
+It is **not yet**:
 
----
+- a full computer-wide memory manager
+- a production-hardened autonomous system
+- an LLM-controlled browser agent
 
-## Current agent loop
+## Core loop
 
 ```text
 OBSERVE -> PREDICT -> ACT -> LEARN
@@ -26,73 +27,70 @@ OBSERVE -> PREDICT -> ACT -> LEARN
    +-------------------------+
 ```
 
-### 1. Observe
+## Observe
 
 The agent reads:
 
-- open tabs via `chrome.tabs.query`
-- the currently activated tab
-- cached tab groups
+- open tabs
+- active tab
+- cached groups
 - asleep state
 - visit history
 - recent activation sequence
-- per-URL and per-group behavior models
+- URL behavior memory
+- group behavior memory
 - protected contexts
 
-### 2. Predict
+## Predict
 
 The local policy predicts:
 
 - `willNeedInNext15Min`
 
-This prediction is built from:
+Main inputs:
 
 - recency
 - visit frequency
 - average revisit interval
 - time-of-day affinity
 - day-of-week affinity
-- recent group activity
+- group recency
 - regret history
 - safe-sleep history
 - protection history
 
-### 3. Act
+## Act
 
-Allowed autonomous actions:
+### Allowed autonomous actions in v1
 
 - `auto_sleep`
 - `auto_wake`
 
-The agent should not autonomously:
+### Not allowed in v1
 
-- close tabs
-- wake tabs aggressively based only on time prediction
-- manage apps outside the browser
+- autonomous close
+- aggressive speculative wake
+- app/system memory management outside the browser
+- OpenAI directly issuing browser actions
 
-Hard safety rules remain outside the model:
-
-- do not auto-sleep pinned tabs
-- do not auto-sleep very recently active tabs
-- do not auto-sleep frequent/protected tabs
-- do not auto-sleep audible tabs if detectable
-
-### 4. Learn
+## Learn
 
 The agent learns from:
 
-#### Implicit feedback
-- reopen within 5 minutes of sleep
-- reopen within 15 minutes of sleep
-- manual wake shortly after sleep
+### Implicit feedback
+
+- reopen within 5 minutes
+- reopen within 15 minutes
+- manual wake after sleep
 - undo
 - repeated protect behavior
 
-#### Explicit feedback
+### Explicit feedback
+
 - `Good`
 - `Bad`
 
-Each autonomous action becomes a structured example with:
+Each autonomous action stores:
 
 - features at decision time
 - score/confidence
@@ -100,111 +98,76 @@ Each autonomous action becomes a structured example with:
 - explanation
 - outcome
 
----
-
 ## OpenAI role
 
-OpenAI is **not** the hot-path controller in this version.
+OpenAI is **advisory only**.
 
-The local browser policy still decides real-time sleep/wake actions.
+The local browser policy remains responsible for real-time decisions.
 
 OpenAI is used for:
 
-- summarizing behavior patterns
-- generating human-readable policy summaries
-- recommending threshold changes
-- suggesting protected contexts
+- behavior summaries
+- explanation support
+- policy-tuning suggestions
+- suggested protected contexts
 
-### OpenAI context blocks
+### OpenAI input
 
-1. **Current session context**
-- open tab count
-- asleep tab count
-- active group/context
-- recent activation sequence
-- current grouped tab snapshot
+OpenAI receives structured summaries, not raw browsing dumps:
 
+1. **Current session**
+   - open tab count
+   - asleep tab count
+   - active context
+   - recent activations
 2. **Behavior summary**
-- per-tab/group recency
-- frequency
-- average revisit interval
-- hour/day affinity
-- co-activation patterns
-- regret/safe/protection counts
+   - recency
+   - frequency
+   - revisit interval
+   - affinity patterns
+   - regret/safe/protect counts
+3. **Recent autonomous history**
+   - action type
+   - confidence
+   - explanation
+   - outcome
+   - feedback
 
-3. **Recent autonomous actions**
-- action type
-- confidence
-- reason
-- outcome
-- feedback
-
-OpenAI output should be structured and advisory:
+### OpenAI output
 
 - summary
 - recommendations
 - threshold deltas
 - suggested protected contexts
 
----
-
-## Components
-
-### `background.js`
-- records tab activations
-- updates behavior memory
-- runs the periodic agent cycle
-- handles context wake
-
-### `agent.js`
-- builds tab features
-- scores need probability
-- selects conservative autonomous sleep candidates
-- logs autonomous actions
-
-### `storage.js`
-- shared persistent memory layer
-- visit history
-- session log
-- URL and group behavior models
-- protected contexts
-- agent policy
-- action log
-- feedback log
-- study export builder
-
-### `popup.js`
-- manual observe/decide/act loop for grouped tabs
-- manual sleep/wake/close controls
-
-### `stats.js`
-- estimated memory dashboard
-- recent autonomous action feed
-- undo / protect / good / bad controls
-- OpenAI policy summary trigger
-- grouping-quality ratings
-- study submission
-
----
-
 ## Repo split
 
-- `tab_agent`
-  - extension runtime
-  - local policy
-  - feedback loop UI
-- `tab_agent_web`
-  - study backend
-  - admin metrics
-  - OpenAI summary endpoint
+### `tab_agent`
 
-Extension behavior changes belong in `tab_agent`, not only in the web repo.
+Contains:
 
----
+- extension runtime
+- local policy
+- popup
+- Stats page
+- feedback UI
+
+### `tab_agent_web`
+
+Contains:
+
+- study backend
+- admin metrics
+- OpenAI summary endpoint
+
+Rule of thumb:
+
+- if browser behavior should change -> edit `tab_agent`
+- if storage/admin/OpenAI summary should change -> edit `tab_agent_web`
 
 ## Storage model
 
-### Behavioral memory
+### URL behavior model
 
 ```js
 urlModel[url] = {
@@ -220,7 +183,7 @@ urlModel[url] = {
 }
 ```
 
-### Group memory
+### Group behavior model
 
 ```js
 groupModel[groupName] = {
@@ -264,40 +227,35 @@ groupModel[groupName] = {
 }
 ```
 
----
+## Guardrails
+
+Never auto-sleep:
+
+- pinned tabs
+- very recently active tabs
+- frequent/protected tabs
+- audible tabs if detectable
+
+Also:
+
+- no autonomous close
+- no OpenAI direct control of tab actions
 
 ## Benchmark framing
 
-The system should be evaluated as:
+Compare:
 
 - **Baseline A:** fixed rule-based sleep policy
-- **Baseline B:** current assistant MVP
+- **Baseline B:** assistant MVP
 - **Experimental:** personalized autonomous agent
 
-The main question is:
+Core question:
 
 > Can a personalized autonomous browser policy save more memory than a fixed rule while causing less interruption?
 
-### Benefit metrics
-- estimated memory saved
-- autonomous sleep count
-- autonomous wake count
-
-### Cost metrics
-- reopen/regret count
-- undo count
-- explicit bad-feedback count
-
-### User metrics
-- usefulness
-- trust
-- willingness to use
-
----
-
-## Out of scope in this version
+## Out of scope
 
 - autonomous close
+- page-content understanding
 - full system CPU/memory management
-- raw page-content understanding
 - cloud LLM control over every tab action

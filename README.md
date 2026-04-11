@@ -1,165 +1,144 @@
-# Tab Agent - Chrome Extension
+# Tab Agent
 
-**Website:** https://tab-agent-web.vercel.app/ · **GitHub:** https://github.com/MaykaS/tab_agent
+Tab Agent is a **browser tab memory-management agent**.
 
-Tab Agent is an agentic Chrome extension that groups tabs with Gemini Nano, autonomously sleeps low-need tabs, context-wakes related tabs, and learns from feedback over time.
+It does four things:
 
-The real-time agent stays local in the browser. OpenAI is used for behavior summaries, explanation support, and policy-tuning recommendations, not for the hot-path sleep/wake controller.
+1. **Groups** tabs by topic with Gemini Nano
+2. **Sleeps** low-need tabs with a local autonomous policy
+3. **Wakes** related slept tabs when the user returns to a context
+4. **Learns** from undo, protect, reopen, and explicit feedback
 
 ## Repo split
 
-- **`tab_agent`**: the Chrome extension itself
-  - popup
-  - background service worker
-  - local autonomous policy
-  - Stats page
-  - feedback loop
-- **`tab_agent_web`**: the website and backend
-  - study storage
-  - admin dashboard
-  - OpenAI summary endpoint
+There are **two repos**:
 
-If you want the browser extension behavior to change, this repo is the one that needs to be updated.
+- **`tab_agent`** - the Chrome extension
+- **`tab_agent_web`** - the website, backend, admin dashboard, and OpenAI summary endpoint
 
----
+If you want to change **extension behavior**, this is the repo to edit.  
+Updating the web repo alone is **not enough**.
 
-## What it does
+## What lives in this repo
 
-- Groups open tabs by topic with Gemini Nano running locally in Chrome
-- Caches groups for instant reopen
-- Lets users manually sleep, wake, or close groups
-- Autonomously sleeps low-need tabs using a conservative local policy
-- Context-wakes slept tabs when the user re-enters a related group
-- Logs autonomous actions, outcomes, undo events, and feedback
-- Supports explicit feedback:
-  - `Undo`
-  - `Protect`
-  - `Good`
-  - `Bad`
-- Includes a Stats page with:
-  - estimated memory totals
-  - per-group memory view
-  - autonomous activity feed
-  - OpenAI policy summary generation
-  - grouping-quality ratings
-  - study submission
+This repo contains the extension runtime:
 
----
+- popup UI
+- background service worker
+- local autonomous policy
+- Stats page
+- feedback loop
+- local storage/model state
 
-## Architecture
+## What lives in the web repo
 
-### Local browser agent
+The separate `tab_agent_web` repo contains:
 
-- `background.js`
-  - records activations
-  - updates behavior memory
-  - runs a periodic agent cycle
-  - auto-sleeps low-need tabs
-  - auto-wakes related slept tabs
+- landing site
+- study submission API
+- Neon/Postgres storage
+- admin dashboard
+- OpenAI-assisted summary endpoint
 
-- `agent.js`
-  - builds tab features
-  - scores near-term need
-  - selects conservative autonomous actions
+## Current product state
 
-- `storage.js`
-  - stores visit history
-  - stores behavior models
-  - stores action logs and feedback logs
-  - stores protected contexts and policy state
-  - builds study export payloads
+Tab Agent is now more than an assistant, but it is still a **v1 browser agent**, not a full computer-wide memory manager.
 
-### Website / research backend
+### Manual assistant features
 
-- `/api/collect`
-  - stores anonymized study submissions in Neon Postgres
-- `/api/agent-summary`
-  - sends structured behavioral summaries to OpenAI
-  - returns policy-tuning recommendations and explanation summaries
-- `/admin`
-  - compares autonomous agent metrics with rule-baseline metrics
+- Gemini Nano grouping
+- cached groups for reopen
+- manual sleep / wake / close
+- frequent-tab protection
+- Stats page
+- grouping-quality ratings
+- study submission
 
----
+### Agentic features
 
-## Agent loop
+- autonomous sleep
+- context wake
+- action log
+- undo
+- protect
+- explicit `Good` / `Bad` feedback
+- local behavior memory
+- OpenAI-generated policy summary
+
+## Why this counts as agentic
+
+Tab Agent now runs a real loop:
 
 1. **Observe**
-- active tab
-- open tabs
-- grouped context
-- visit history
-- time/day patterns
-- recent activations
-
+   - open tabs
+   - active tab
+   - cached groups
+   - visit history
+   - recent activations
+   - behavior memory
 2. **Predict**
-- estimate `willNeedInNext15Min`
-
+   - estimate whether a tab will be needed in the next 15 minutes
 3. **Act**
-- auto-sleep high-confidence low-need tabs
-- context-wake related slept tabs
-
+   - auto-sleep low-need tabs
+   - context-wake related slept tabs
 4. **Learn**
-- implicit feedback:
-  - reopen within 5 / 15 minutes
-  - undo
-  - manual wake after sleep
-  - protect
-- explicit feedback:
-  - good
-  - bad
+   - from reopen behavior
+   - from undo
+   - from protect
+   - from explicit good/bad feedback
 
----
+That is enough to call it an **agentic tab memory-management prototype**.
+
+## What OpenAI does
+
+OpenAI is **not** the real-time controller.
+
+The extension makes sleep/wake decisions locally. OpenAI is used only for:
+
+- policy summaries
+- explanation support
+- threshold-tuning suggestions
+- protected-context suggestions
+
+This keeps the agent:
+
+- local
+- fast
+- explainable
+- benchmarkable
 
 ## Benchmark framing
 
-The system is evaluated as:
+The product should be evaluated against:
 
 - **Baseline A:** static rule-based tab management
 - **Baseline B:** assistant MVP with manual actions
 - **Experimental:** personalized autonomous agent
 
-Key metrics:
+Core metrics:
 
 - estimated memory saved
 - autonomous sleep count
 - autonomous wake count
-- reopen/regret count
+- regret / reopen count
 - undo rate
-- trust / usefulness / willingness to use
+- usefulness
+- trust
+- willingness to use
 
----
+## Test set
 
-## How to enable Gemini Nano
+This repo includes a reusable scenario set in [agent_test_set/README.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/agent_test_set/README.md).
 
-### 1. Enable Chrome flags
+Use it to test:
 
-`chrome://flags/#prompt-api-for-gemini-nano`
-Set to: `Enabled`
+- sleep decisions
+- wake behavior
+- safety constraints
+- feedback handling
+- baseline-vs-agent comparison cases
 
-`chrome://flags/#optimization-guide-on-device-model`
-Set to: `Enabled BypassPerfRequirement`
-
-### 2. Relaunch Chrome
-
-### 3. Download the model
-
-Run in DevTools:
-
-```js
-await LanguageModel.create()
-```
-
-### 4. Verify availability
-
-```js
-await LanguageModel.availability()
-```
-
-It should return `"available"`.
-
----
-
-## How to install
+## Install
 
 1. Clone the repo
    ```bash
@@ -167,51 +146,44 @@ It should return `"available"`.
    cd tab_agent
    ```
 2. Open `chrome://extensions`
-3. Enable **Developer mode**
+3. Turn on **Developer mode**
 4. Click **Load unpacked**
-5. Select the project folder
+5. Select this folder
 
 After code changes:
 
 1. Reload the extension in `chrome://extensions`
 2. Reopen the popup or Stats page
 
----
+## Gemini Nano setup
 
-## Study submission
+Enable both Chrome flags:
 
-The Stats page submits an anonymized snapshot that can include:
+- `chrome://flags/#prompt-api-for-gemini-nano` -> `Enabled`
+- `chrome://flags/#optimization-guide-on-device-model` -> `Enabled BypassPerfRequirement`
 
-- participant ID
-- tab/group/asleep counts
-- rating summary
-- estimated memory totals
-- autonomous action log
-- feedback log
-- protected contexts
-- baseline comparison summary
-- self-report answers
+Then run in DevTools:
 
-Memory fields are estimated on Chrome stable.
+```js
+await LanguageModel.create()
+```
 
----
+Verify:
 
-## Test set
+```js
+await LanguageModel.availability()
+```
 
-This repo now includes a reusable scenario package in [agent_test_set/README.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/agent_test_set/README.md).
+Expected result:
 
-Use it to manually compare:
-- rule baseline
-- assistant MVP
-- autonomous agent
-
-before building a formal runner.
-
----
+```js
+"available"
+```
 
 ## Known limitations
 
-- Browser-only for now; not full system memory management yet
-- Memory values are estimated on Chrome stable
-- Autonomous policy is intentionally conservative in v1
-- OpenAI summaries are advisory; the local policy still controls actions
+- browser-only for now
+- not full system memory management yet
+- memory values are estimated on Chrome stable
+- the v1 policy is intentionally conservative
+- OpenAI summaries are advisory only

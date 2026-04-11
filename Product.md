@@ -2,25 +2,27 @@
 
 ## Product vision
 
-Tab Agent is evolving from a smart tab assistant into a **personalized browser memory-management agent**.
+Tab Agent is moving from a smart tab assistant to a **personalized browser memory-management agent**.
 
-The long-term vision is broader than tabs: computers should not manage memory with static heuristics alone. They should learn how each person works and proactively allocate resources with minimal interruption.
+The long-term vision is broader than tabs:
 
-The current product wedge is the browser.
+> computers should not manage memory with static heuristics alone; they should learn how each person works and proactively allocate resources with minimal interruption.
 
----
+The current wedge is the browser.
 
-## Problem
+## The problem
 
 Today, browser memory management is mostly generic and rule-based.
 
-That creates two failures:
+That creates two problems:
 
-1. **Performance failure**
+### 1. Performance problem
+
 - too many open tabs consume memory
 - users experience slowdowns and reloads
 
-2. **Cognitive failure**
+### 2. Cognitive problem
+
 - users constantly decide what to close, keep, reopen, or protect
 - manual memory management interrupts work
 
@@ -29,26 +31,22 @@ Static rules do not understand:
 - what the user is likely to need next
 - which tabs belong to the same working context
 - which tabs are repeatedly revisited
-- which decisions the user regrets
-
----
+- which actions the user later regrets
 
 ## Product thesis
 
-The right solution is not just grouping tabs.
+The right product is not just "tab grouping."
 
-The right solution is a **context-aware agent** that:
+The right product is a **context-aware agent** that:
 
 - observes usage patterns
 - predicts near-term need
-- acts conservatively on the user’s behalf
+- acts conservatively on the user's behalf
 - improves through feedback
 
-That creates a data flywheel:
+This creates a data flywheel:
 
 `usage -> behavioral data -> better policy -> better UX -> more usage`
-
----
 
 ## Product progression
 
@@ -56,7 +54,7 @@ That creates a data flywheel:
 
 Delivered:
 
-- Gemini Nano tab grouping
+- Gemini Nano grouping
 - persistent groups
 - manual sleep/wake/close
 - frequent-tab protection
@@ -68,7 +66,7 @@ This version is intelligent, but not autonomous.
 
 ### Stage 2 - Agentic browser version
 
-Current direction:
+Current product:
 
 - autonomous sleep
 - context wake
@@ -82,10 +80,10 @@ This is the first true agent version because it closes the loop:
 
 `observe -> predict -> act -> learn`
 
-This stage is still implemented through the browser wedge:
+Repo split for this stage:
 
-- extension logic lives in `tab_agent`
-- storage, admin analysis, and OpenAI summaries live in `tab_agent_web`
+- `tab_agent` = extension runtime and local policy
+- `tab_agent_web` = storage, admin analysis, and OpenAI summaries
 
 ### Stage 3 - Broader memory-management platform
 
@@ -95,8 +93,6 @@ Longer term:
 - broader compute/memory coordination
 - system-wide personalization
 
----
-
 ## Why this is different
 
 Most tab or memory tools are:
@@ -105,27 +101,25 @@ Most tab or memory tools are:
 - manual
 - non-personalized
 
-Tab Agent’s differentiation is:
+Tab Agent is different because of:
 
 - **personalization**
 - **autonomy**
 - **feedback-driven improvement**
 - **explainability**
 
-The core contribution is not “using an LLM.”
+The core contribution is **not** "we used an LLM."
 
-The core contribution is:
+The real contribution is:
 
 - a learned policy
 - behavior memory
 - conservative autonomous action
 - a measurable tradeoff between saved memory and interruption cost
 
----
-
 ## OpenAI role
 
-OpenAI is not the hot-path action engine in this version.
+OpenAI is not the hot-path controller.
 
 The browser agent still decides locally in real time.
 
@@ -143,8 +137,6 @@ This keeps the product:
 - more benchmarkable
 - easier to trust
 
----
-
 ## Benchmark framing
 
 The product should be compared against:
@@ -160,33 +152,38 @@ The goal is:
 > maximize memory saved while minimizing user interruption
 
 ### Benefit
+
 - estimated memory saved
 - autonomous sleep count
 - lower open-tab memory footprint
 
 ### Cost
+
 - reopen within 5 / 15 minutes
 - undo rate
 - manual wake soon after sleep
 - explicit bad-feedback rate
 
 ### User outcome
+
 - trust
 - usefulness
 - willingness to use
 
----
+## Near-term target
 
-## Near-term build target
-
-By the end of next week, the target product is:
+The near-term target is:
 
 - a working Chrome browser agent
-- with conservative autonomous sleep
+- conservative autonomous sleep
 - context wake
 - action feed
 - feedback loop
 - OpenAI-assisted policy summary
 - admin comparison against a fixed-rule baseline
 
-This is enough to demonstrate a real data flywheel and a meaningful step from assistant to agent.
+That is enough to demonstrate:
+
+- a real data flywheel
+- a real step from assistant to agent
+- a credible wedge into broader memory-management software
