@@ -70,6 +70,11 @@ Tab Agent is now more than an assistant, but it is still a **v1 browser agent**,
 - exported training examples for offline learning
 - OpenAI-generated policy summary
 
+The Stats page now surfaces the agent loop in a compact way:
+
+- a collapsible feed for recent autonomous actions and feedback
+- a collapsible raw tab event log for temporal debugging and context inspection
+
 ## Why this counts as agentic
 
 Tab Agent now runs a real loop:
@@ -169,6 +174,8 @@ After code changes:
 
 1. Reload the extension in `chrome://extensions`
 2. Reopen the popup or Stats page
+
+If you changed autonomous behavior, feedback logging, or the Stats UI, you must reload the unpacked extension before Chrome will pick up the new version.
 
 ## Gemini Nano setup
 

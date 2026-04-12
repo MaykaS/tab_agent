@@ -42,6 +42,7 @@ Already implemented:
 - adaptive policy summary
 - training-example export for offline learning
 - OpenAI summary generation
+- collapsible Stats feeds for autonomous actions and raw events
 
 ## Core prediction target
 
@@ -192,6 +193,7 @@ The reusable test set must cover:
 - protected/frequent/recent tabs are not auto-slept
 - activating a related tab can wake slept siblings
 - Stats page shows autonomous actions and feedback controls
+- Stats page exposes the raw tab event log without overwhelming the layout
 - undo / protect / good / bad are stored and surfaced
 - study submissions include autonomous metrics and baseline comparison data
 - exported payload includes `tabEventLog`, `recentTabEvents`, `adaptivePolicySummary`, and `trainingExamples`

@@ -168,6 +168,7 @@ Contains:
 - popup
 - Stats page
 - feedback UI
+- collapsible action/event inspection for autonomous behavior
 
 ### `tab_agent_web`
 
