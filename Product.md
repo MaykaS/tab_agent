@@ -71,9 +71,12 @@ Current product:
 - autonomous sleep
 - context wake
 - action explanations
+- raw tab lifecycle logging
 - undo
 - protect/unprotect
 - implicit + explicit feedback loop
+- adaptive thresholding from recent outcomes
+- training-example export for offline policy learning
 - OpenAI-assisted policy summaries
 
 This is the first true agent version because it closes the loop:
@@ -117,6 +120,12 @@ The real contribution is:
 - conservative autonomous action
 - a measurable tradeoff between saved memory and interruption cost
 
+In the current version, the runtime policy is still mostly heuristic, but the product now exports the data needed for:
+
+- offline policy training
+- threshold tuning
+- future reranking / classifier experiments
+
 ## OpenAI role
 
 OpenAI is not the hot-path controller.
@@ -129,6 +138,12 @@ OpenAI is used to:
 - explain actions
 - recommend threshold changes
 - identify contexts that should be protected
+
+The summary layer can benchmark three context formulations:
+
+- summarized behavior only
+- raw recent event log only
+- hybrid context
 
 This keeps the product:
 
@@ -187,3 +202,9 @@ That is enough to demonstrate:
 - a real data flywheel
 - a real step from assistant to agent
 - a credible wedge into broader memory-management software
+
+The next product-learning step is:
+
+- keep hard guardrails fixed
+- use exported action/outcome/event data for offline learning
+- then add small, safe personalized threshold updates before any broader post-training loop

@@ -7,6 +7,14 @@ const STATS_ESTIMATED_MEMORY_PER_TAB_MB = 50;
 const ACTION_FEED_LIMIT = 8;
 const EVENT_FEED_LIMIT = 12;
 
+function truncateMiddle(text, maxLength = 72) {
+  const value = String(text || "");
+  if (value.length <= maxLength) return value;
+  const head = Math.ceil((maxLength - 3) / 2);
+  const tail = Math.floor((maxLength - 3) / 2);
+  return `${value.slice(0, head)}...${value.slice(value.length - tail)}`;
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   await renderAll();
 
@@ -231,7 +239,7 @@ async function renderAgentActivitySection() {
     `;
   }).join("");
 
-  const eventCards = tabEvents.map((event) => `
+  const eventCards = tabEvents.slice(0, EVENT_FEED_LIMIT).map((event) => `
     <div style="padding:10px 12px;border:1px solid #eee;border-radius:8px;background:#fff;">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
         <div>
@@ -242,8 +250,8 @@ async function renderAgentActivitySection() {
           <div style="font-size:12px;font-weight:600;color:#333;margin-top:4px;">
             ${escapeHtml(event.groupName || event.title || "Untitled")}
           </div>
-          <div style="font-size:12px;color:#666;line-height:1.5;margin-top:2px;word-break:break-word;">
-            ${escapeHtml(event.url || "")}
+          <div style="font-size:12px;color:#666;line-height:1.5;margin-top:2px;">
+            ${escapeHtml(truncateMiddle(event.url || ""))}
           </div>
         </div>
         <div style="font-size:11px;color:#888;white-space:nowrap;">${new Date(event.timestamp).toLocaleTimeString()}</div>
@@ -254,15 +262,33 @@ async function renderAgentActivitySection() {
   wrap.innerHTML = `
     ${summaryHtml}
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;">
-      <div style="font-size:12px;color:#666;">Recent autonomous actions and feedback</div>
+      <div style="font-size:12px;color:#666;">Autonomous activity details</div>
       <button class="btn btn-primary" id="generate-openai-summary">Generate AI summary</button>
     </div>
-    <div style="display:grid;gap:10px;">${actionCards}</div>
+    <details style="border:1px solid #eee;border-radius:8px;background:#fcfcfc;">
+      <summary style="padding:10px 12px;cursor:pointer;font-size:12px;color:#666;font-weight:600;list-style:none;">
+        Recent autonomous actions and feedback (${actions.length})
+      </summary>
+      <div style="padding:12px;border-top:1px solid #f0f0f0;">
+        ${actionCards
+          ? `<div style="display:grid;gap:10px;">${actionCards}</div>`
+          : `<div style="font-size:12px;color:#888;">No autonomous actions captured yet.</div>`}
+      </div>
+    </details>
     <div style="margin-top:16px;">
-      <div style="font-size:12px;color:#666;margin-bottom:10px;">Recent tab event log</div>
-      ${eventCards
-        ? `<div style="display:grid;gap:8px;">${eventCards}</div>`
-        : `<div style="font-size:12px;color:#888;">No raw tab events captured yet. Reload the extension, switch tabs, or use sleep/wake to populate this feed.</div>`}
+      <details style="border:1px solid #eee;border-radius:8px;background:#fcfcfc;">
+        <summary style="padding:10px 12px;cursor:pointer;font-size:12px;color:#666;font-weight:600;list-style:none;">
+          Recent tab event log (${tabEvents.length})
+        </summary>
+        <div style="padding:0 12px 12px 12px;border-top:1px solid #f0f0f0;">
+          <div style="font-size:11px;color:#888;margin:10px 0;">
+            Raw lifecycle events are stored for benchmarking and context analysis. Showing the newest ${Math.min(tabEvents.length, EVENT_FEED_LIMIT)} items.
+          </div>
+          ${eventCards
+            ? `<div style="display:grid;gap:8px;">${eventCards}</div>`
+            : `<div style="font-size:12px;color:#888;">No raw tab events captured yet. Reload the extension, switch tabs, or use sleep/wake to populate this feed.</div>`}
+        </div>
+      </details>
     </div>
     <div id="agent-feedback-status" style="font-size:12px;color:#666;margin-top:10px;"></div>
   `;

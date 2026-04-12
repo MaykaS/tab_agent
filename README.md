@@ -29,6 +29,8 @@ This repo contains the extension runtime:
 - Stats page
 - feedback loop
 - local storage/model state
+- raw tab event logging
+- training-example export
 
 ## What lives in the web repo
 
@@ -59,10 +61,13 @@ Tab Agent is now more than an assistant, but it is still a **v1 browser agent**,
 - autonomous sleep
 - context wake
 - action log
+- raw tab lifecycle event log
 - undo
 - protect
 - explicit `Good` / `Bad` feedback
 - local behavior memory
+- adaptive policy thresholds from recent outcomes
+- exported training examples for offline learning
 - OpenAI-generated policy summary
 
 ## Why this counts as agentic
@@ -76,6 +81,7 @@ Tab Agent now runs a real loop:
    - visit history
    - recent activations
    - behavior memory
+   - raw tab lifecycle events
 2. **Predict**
    - estimate whether a tab will be needed in the next 15 minutes
 3. **Act**
@@ -99,6 +105,12 @@ The extension makes sleep/wake decisions locally. OpenAI is used only for:
 - explanation support
 - threshold-tuning suggestions
 - protected-context suggestions
+
+The web layer can now compare three context variants for summaries:
+
+- `summary_only`
+- `raw_log_only`
+- `hybrid`
 
 This keeps the agent:
 
@@ -137,6 +149,9 @@ Use it to test:
 - safety constraints
 - feedback handling
 - baseline-vs-agent comparison cases
+- summary-vs-raw-vs-hybrid context comparisons
+
+The generated benchmark report lives at [agent_test_set/context_benchmark_report.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/agent_test_set/context_benchmark_report.md).
 
 ## Install
 
@@ -187,3 +202,4 @@ Expected result:
 - memory values are estimated on Chrome stable
 - the v1 policy is intentionally conservative
 - OpenAI summaries are advisory only
+- offline learning data is exported, but the runtime policy is still mostly heuristic

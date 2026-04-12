@@ -34,10 +34,13 @@ Already implemented:
 - autonomous sleep
 - context wake
 - action log
+- raw tab event log
 - undo
 - protect
 - explicit good/bad feedback
 - local behavior memory
+- adaptive policy summary
+- training-example export for offline learning
 - OpenAI summary generation
 
 ## Core prediction target
@@ -96,6 +99,7 @@ The agent must not autonomously:
 | Agent policy | `chrome.storage.local` | Thresholds and safeguards |
 | Agent action log | `chrome.storage.local` | Autonomous action feed |
 | Feedback log | `chrome.storage.local` | Undo/regret/protect/good/bad |
+| Tab event log | `chrome.storage.local` | Temporal-order context + training data |
 | Protected contexts | `chrome.storage.local` | User overrides |
 | Study submissions | Neon Postgres | Research/admin analysis |
 | OpenAI summaries | local storage + web API | Advisory policy output |
@@ -108,11 +112,18 @@ It does not directly control browser actions.
 
 ### OpenAI input
 
-Structured summaries only:
+Structured context only:
 
 1. current session context
 2. behavior summary
 3. recent autonomous action history
+4. optional truncated raw event window
+
+Supported context variants:
+
+- `summary_only`
+- `raw_log_only`
+- `hybrid`
 
 ### OpenAI output
 
@@ -170,6 +181,8 @@ The reusable test set must cover:
 - regret outcomes
 - explicit feedback outcomes
 - rule vs assistant vs agent comparison cases
+- temporal-order context ambiguity cases
+- summary vs raw vs hybrid context comparisons
 
 ## Acceptance criteria
 
@@ -181,6 +194,7 @@ The reusable test set must cover:
 - Stats page shows autonomous actions and feedback controls
 - undo / protect / good / bad are stored and surfaced
 - study submissions include autonomous metrics and baseline comparison data
+- exported payload includes `tabEventLog`, `recentTabEvents`, `adaptivePolicySummary`, and `trainingExamples`
 - website stores and displays autonomous telemetry
 - OpenAI summary endpoint returns structured output or safe fallback
 

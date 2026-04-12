@@ -37,6 +37,7 @@ The agent reads:
 - asleep state
 - visit history
 - recent activation sequence
+- raw tab lifecycle log
 - URL behavior memory
 - group behavior memory
 - protected contexts
@@ -58,6 +59,7 @@ Main inputs:
 - regret history
 - safe-sleep history
 - protection history
+- recent open/activate/sleep/wake/close sequence
 
 ## Act
 
@@ -98,6 +100,18 @@ Each autonomous action stores:
 - explanation
 - outcome
 
+The extension also stores a raw event log with:
+
+- `open`
+- `activate`
+- `sleep`
+- `wake`
+- `close`
+- `undo`
+- `protect`
+- `good_feedback`
+- `bad_feedback`
+
 ## OpenAI role
 
 OpenAI is **advisory only**.
@@ -113,7 +127,7 @@ OpenAI is used for:
 
 ### OpenAI input
 
-OpenAI receives structured summaries, not raw browsing dumps:
+OpenAI receives structured context, not raw browsing dumps:
 
 1. **Current session**
    - open tab count
@@ -132,6 +146,9 @@ OpenAI receives structured summaries, not raw browsing dumps:
    - explanation
    - outcome
    - feedback
+4. **Optional raw event window**
+   - truncated recent lifecycle log
+   - used in `raw_log_only` and `hybrid` modes
 
 ### OpenAI output
 
@@ -226,6 +243,37 @@ groupModel[groupName] = {
   groupName
 }
 ```
+
+### Tab event log
+
+```js
+{
+  id,
+  timestamp,
+  eventType,
+  tabId,
+  url,
+  normalizedUrl,
+  title,
+  groupName,
+  source
+}
+```
+
+### Adaptive policy summary
+
+The runtime still uses heuristics, but policy thresholds can now shift slightly per user based on recent:
+
+- regret / undo
+- safe sleeps
+- protect signals
+
+The exported payload includes:
+
+- `baseAgentPolicy`
+- `adaptivePolicySummary`
+- effective `agentPolicy`
+- `trainingExamples`
 
 ## Guardrails
 

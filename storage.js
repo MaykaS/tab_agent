@@ -80,6 +80,75 @@ async function getAgentPolicy() {
   };
 }
 
+function summarizeAdaptivePolicy(basePolicy, feedbackLog = [], actionLog = []) {
+  const recentFeedback = Array.isArray(feedbackLog) ? feedbackLog.slice(0, 40) : [];
+  const recentActions = Array.isArray(actionLog) ? actionLog.slice(0, 40) : [];
+
+  const negativeCount = recentFeedback.filter((entry) =>
+    entry.type === "undo" ||
+    String(entry.type).includes("regret") ||
+    entry.type === "bad_feedback"
+  ).length;
+  const positiveCount = recentFeedback.filter((entry) =>
+    entry.type === "good_feedback" ||
+    entry.type === "safe_after_15m"
+  ).length;
+  const protectCount = recentFeedback.filter((entry) => entry.type === "protect").length;
+  const recentAutoSleeps = recentActions.filter((entry) => entry.type === "auto_sleep").length;
+
+  let sleepThresholdDelta = 0;
+  let minInactiveMinutesDelta = 0;
+  let recentProtectMinutesDelta = 0;
+  const notes = [];
+
+  if (negativeCount >= positiveCount + 2) {
+    sleepThresholdDelta -= 0.05;
+    minInactiveMinutesDelta += 5;
+    recentProtectMinutesDelta += 2;
+    notes.push("Recent regret/undo signals increased conservatism.");
+  } else if (positiveCount >= negativeCount + 3 && recentAutoSleeps >= 3) {
+    sleepThresholdDelta += 0.03;
+    minInactiveMinutesDelta -= 5;
+    notes.push("Recent safe outcomes allow slightly more aggressive sleeping.");
+  }
+
+  if (protectCount >= 2) {
+    recentProtectMinutesDelta += 2;
+    notes.push("Repeated protect signals extended the recent-activity shield.");
+  }
+
+  return {
+    basePolicy,
+    adjustmentSignals: {
+      negativeCount,
+      positiveCount,
+      protectCount,
+      recentAutoSleeps,
+    },
+    deltas: {
+      sleepThresholdDelta: Number(sleepThresholdDelta.toFixed(2)),
+      minInactiveMinutesDelta,
+      recentProtectMinutesDelta,
+    },
+    effectivePolicy: {
+      ...basePolicy,
+      sleepThreshold: Number(clamp(basePolicy.sleepThreshold + sleepThresholdDelta, 0.2, 0.45).toFixed(2)),
+      minInactiveMinutes: clamp(basePolicy.minInactiveMinutes + minInactiveMinutesDelta, 15, 45),
+      recentProtectMinutes: clamp(basePolicy.recentProtectMinutes + recentProtectMinutesDelta, 8, 20),
+    },
+    notes,
+  };
+}
+
+async function getEffectiveAgentPolicy() {
+  const [basePolicy, actionLog, feedbackLog] = await Promise.all([
+    getAgentPolicy(),
+    getAgentActionLog(MAX_ACTION_LOG),
+    getFeedbackLog(MAX_FEEDBACK_LOG),
+  ]);
+  return summarizeAdaptivePolicy(basePolicy, feedbackLog, actionLog).effectivePolicy;
+}
+
 async function saveAgentPolicy(policy) {
   const current = await getAgentPolicy();
   await chrome.storage.local.set({
@@ -205,6 +274,82 @@ async function getRecentTabEventsForContext(limit = TAB_EVENT_CONTEXT_LIMIT, win
     .filter((entry) => entry.timestamp > cutoff)
     .slice(0, limit)
     .reverse();
+}
+
+function mapOutcomeToReward(outcomeStatus) {
+  if (!outcomeStatus) return 0;
+  if (outcomeStatus === "safe_after_15m" || outcomeStatus === "good_feedback") return 1;
+  if (outcomeStatus === "protect") return -0.5;
+  if (outcomeStatus === "undo" || outcomeStatus === "bad_feedback") return -1;
+  if (String(outcomeStatus).includes("regret")) return -1;
+  return 0;
+}
+
+function buildTrainingExamples(actionLog = [], feedbackLog = [], tabEventLog = [], urlModel = {}, groupModel = {}, agentPolicy = {}) {
+  const recentEventsAsc = (tabEventLog || []).slice().sort((a, b) => a.timestamp - b.timestamp);
+  const feedbackByActionId = {};
+
+  for (const entry of feedbackLog || []) {
+    if (!entry?.actionId) continue;
+    if (!feedbackByActionId[entry.actionId]) feedbackByActionId[entry.actionId] = [];
+    feedbackByActionId[entry.actionId].push(entry);
+  }
+
+  return (actionLog || [])
+    .filter((action) => action.type === "auto_sleep")
+    .map((action) => {
+      const actionTimestamp = action.createdAt || now();
+      const targetUrl = action.target?.urls?.[0] || null;
+      const normalizedUrl = normalizeUrl(targetUrl);
+      const groupName = action.target?.groupName || null;
+      const nearbyEvents = recentEventsAsc
+        .filter((entry) => {
+          const sameTarget =
+            (targetUrl && entry.url === targetUrl) ||
+            (groupName && entry.groupName === groupName);
+          return sameTarget && entry.timestamp <= actionTimestamp;
+        })
+        .slice(-12);
+      const outcomeStatus = action.outcome?.status || "pending";
+      const reward = mapOutcomeToReward(outcomeStatus);
+      const feedbackEntries = feedbackByActionId[action.id] || [];
+
+      return {
+        exampleId: `train_${action.id}`,
+        createdAt: actionTimestamp,
+        target: {
+          url: targetUrl,
+          normalizedUrl,
+          title: action.target?.titles?.[0] || "Untitled",
+          groupName,
+        },
+        context: {
+          policyState: {
+            sleepThreshold: agentPolicy.sleepThreshold,
+            minInactiveMinutes: agentPolicy.minInactiveMinutes,
+            recentProtectMinutes: agentPolicy.recentProtectMinutes,
+          },
+          urlSummary: normalizedUrl ? (urlModel[normalizedUrl] || null) : null,
+          groupSummary: groupName ? (groupModel[groupName] || null) : null,
+          actionFeatures: action.features || {},
+          recentEvents: nearbyEvents.map((entry) => ({
+            timestamp: entry.timestamp,
+            eventType: entry.eventType,
+            url: entry.url,
+            groupName: entry.groupName || null,
+            source: entry.source || "user",
+          })),
+        },
+        action: "sleep",
+        outcome: outcomeStatus,
+        reward,
+        feedback: feedbackEntries.map((entry) => ({
+          type: entry.type,
+          timestamp: entry.timestamp,
+          elapsedMinutes: entry.elapsedMinutes ?? null,
+        })),
+      };
+    });
 }
 
 function pruneOldVisits(visits) {
@@ -951,6 +1096,21 @@ async function buildStudySnapshot(data) {
 async function getAllDataForExport() {
   const data = await chrome.storage.local.get(null);
   const studySnapshot = await buildStudySnapshot(data);
+  const baseAgentPolicy = await getAgentPolicy();
+  const adaptivePolicySummary = summarizeAdaptivePolicy(
+    baseAgentPolicy,
+    data[FEEDBACK_LOG_KEY] || [],
+    data[AGENT_ACTION_LOG_KEY] || []
+  );
+  const effectiveAgentPolicy = adaptivePolicySummary.effectivePolicy;
+  const trainingExamples = buildTrainingExamples(
+    data[AGENT_ACTION_LOG_KEY] || [],
+    data[FEEDBACK_LOG_KEY] || [],
+    data[TAB_EVENT_LOG_KEY] || [],
+    data[URL_MODEL_KEY] || {},
+    data[GROUP_MODEL_KEY] || {},
+    effectiveAgentPolicy
+  );
 
   return {
     participantId: studySnapshot.participantId,
@@ -971,7 +1131,9 @@ async function getAllDataForExport() {
     memoryMetricsAreEstimated: studySnapshot.memoryMetricsAreEstimated,
     studyResponses: await getStudyResponses(),
     groups: studySnapshot.groups,
-    agentPolicy: await getAgentPolicy(),
+    agentPolicy: effectiveAgentPolicy,
+    baseAgentPolicy,
+    adaptivePolicySummary,
     actionLog: data[AGENT_ACTION_LOG_KEY] || [],
     feedbackLog: data[FEEDBACK_LOG_KEY] || [],
     protectedContexts: await getProtectedContexts(),
@@ -980,6 +1142,7 @@ async function getAllDataForExport() {
     groupModel: data[GROUP_MODEL_KEY] || {},
     tabEventLog: data[TAB_EVENT_LOG_KEY] || [],
     recentTabEvents: await getRecentTabEventsForContext(),
+    trainingExamples,
     autonomousSummary: studySnapshot.autonomousSummary,
     baselineComparison: studySnapshot.baselineComparison,
     openAiPolicySummary: await getOpenAiPolicySummary(),

@@ -6,10 +6,10 @@ Generated from the current fixture set with deterministic context ablations.
 
 | Variant | Exact-match | Precision | Recall | F1 | Protected violations | Regret-handling notes | Summary rubric |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| minimal | 9/17 | 0.97 | 0.73 | 0.74 | 1 | No negative replay fixture; Preserved recent negative-feedback targets | 6.24/8 |
-| summary_only | 13/17 | 0.94 | 0.91 | 0.88 | 2 | No negative replay fixture; Still proposes a negative-feedback target | 6.24/8 |
+| minimal | 9/17 | 0.97 | 0.73 | 0.74 | 1 | No negative replay fixture; Preserved recent negative-feedback targets | 6.35/8 |
+| summary_only | 13/17 | 0.94 | 0.91 | 0.88 | 2 | No negative replay fixture; Still proposes a negative-feedback target | 6.35/8 |
 | raw_log_only | 17/17 | 1.00 | 1.00 | 1.00 | 0 | No negative replay fixture; Still proposes a negative-feedback target; Preserved recent negative-feedback targets | 6.24/8 |
-| hybrid | 17/17 | 1.00 | 1.00 | 1.00 | 0 | No negative replay fixture; Still proposes a negative-feedback target; Preserved recent negative-feedback targets | 5.76/8 |
+| hybrid | 17/17 | 1.00 | 1.00 | 1.00 | 0 | No negative replay fixture; Still proposes a negative-feedback target; Preserved recent negative-feedback targets | 6.00/8 |
 
 ## Conclusions
 
@@ -21,17 +21,17 @@ Generated from the current fixture set with deterministic context ablations.
 
 ### deep_work_cluster
 
-- `minimal`: predicted ["https://news.example.com/story","https://wikipedia.org/wiki/Test"] | exact=true | precision=1.00 | recall=1.00 | rubric=6/8 | No negative replay fixture
-- `summary_only`: predicted ["https://news.example.com/story","https://wikipedia.org/wiki/Test"] | exact=true | precision=1.00 | recall=1.00 | rubric=6/8 | No negative replay fixture
+- `minimal`: predicted ["https://news.example.com/story","https://wikipedia.org/wiki/Test"] | exact=true | precision=1.00 | recall=1.00 | rubric=7/8 | No negative replay fixture
+- `summary_only`: predicted ["https://news.example.com/story","https://wikipedia.org/wiki/Test"] | exact=true | precision=1.00 | recall=1.00 | rubric=7/8 | No negative replay fixture
 - `raw_log_only`: predicted ["https://news.example.com/story","https://wikipedia.org/wiki/Test"] | exact=true | precision=1.00 | recall=1.00 | rubric=6/8 | No negative replay fixture
-- `hybrid`: predicted ["https://news.example.com/story","https://wikipedia.org/wiki/Test"] | exact=true | precision=1.00 | recall=1.00 | rubric=5/8 | No negative replay fixture
+- `hybrid`: predicted ["https://news.example.com/story","https://wikipedia.org/wiki/Test"] | exact=true | precision=1.00 | recall=1.00 | rubric=7/8 | No negative replay fixture
 
 ### heavy_productivity_cluster
 
 - `minimal`: predicted [] | exact=true | precision=1.00 | recall=1.00 | rubric=7/8 | No negative replay fixture
 - `summary_only`: predicted [] | exact=true | precision=1.00 | recall=1.00 | rubric=7/8 | No negative replay fixture
 - `raw_log_only`: predicted [] | exact=true | precision=1.00 | recall=1.00 | rubric=7/8 | No negative replay fixture
-- `hybrid`: predicted [] | exact=true | precision=1.00 | recall=1.00 | rubric=6/8 | No negative replay fixture
+- `hybrid`: predicted [] | exact=true | precision=1.00 | recall=1.00 | rubric=7/8 | No negative replay fixture
 
 ### research_sprawl
 
@@ -77,10 +77,10 @@ Generated from the current fixture set with deterministic context ablations.
 
 ### regret_history_tab
 
-- `minimal`: predicted [] | exact=true | precision=1.00 | recall=1.00 | rubric=6/8 | No negative replay fixture
-- `summary_only`: predicted [] | exact=true | precision=1.00 | recall=1.00 | rubric=6/8 | No negative replay fixture
+- `minimal`: predicted [] | exact=true | precision=1.00 | recall=1.00 | rubric=7/8 | No negative replay fixture
+- `summary_only`: predicted [] | exact=true | precision=1.00 | recall=1.00 | rubric=7/8 | No negative replay fixture
 - `raw_log_only`: predicted [] | exact=true | precision=1.00 | recall=1.00 | rubric=6/8 | No negative replay fixture
-- `hybrid`: predicted [] | exact=true | precision=1.00 | recall=1.00 | rubric=6/8 | No negative replay fixture
+- `hybrid`: predicted [] | exact=true | precision=1.00 | recall=1.00 | rubric=7/8 | No negative replay fixture
 
 ### mixed_safe_sleep_batch
 

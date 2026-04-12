@@ -182,7 +182,7 @@ async function decideAutonomousSleepCandidates(tabs, cached, policy) {
 }
 
 async function runAgentCycle() {
-  const policy = await getAgentPolicy();
+  const policy = await getEffectiveAgentPolicy();
   if (!policy.enabled) return { slept: 0 };
 
   await finalizeAutoSleepOutcomes();
