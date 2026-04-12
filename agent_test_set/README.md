@@ -32,12 +32,18 @@ Each scenario includes:
 - `behaviorSummary`
 - `recentActivations`
 - `protectedContexts`
+- `eventLog` for temporal-order benchmarking when available
 - `expected`
 
 Replay-oriented cases can also include:
 
 - `actionHistory`
 - `feedbackFixtures`
+
+Generated artifacts:
+
+- `context_benchmark_report.md`
+  - comparison report for `minimal`, `summary_only`, `raw_log_only`, and `hybrid`
 
 ## How to use manually
 

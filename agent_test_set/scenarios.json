@@ -359,6 +359,258 @@
         "contextWake": { "triggerUrl": "https://slides.example.com/deck", "shouldWakeGroups": ["Strategy"] },
         "benchmarkNotes": "Agent should preserve active strategy tabs and use regret feedback to stop repeating bad sleeps."
       }
+    },
+    {
+      "id": "same_summary_different_sequence_a",
+      "name": "Same Summary, Different Sequence A",
+      "goal": "Protect a tab that is part of a fresh task burst even though its summary stats look stale.",
+      "category": "sleep",
+      "currentSession": { "timeOfDay": 14, "dayOfWeek": 1, "openTabCount": 3, "asleepTabCount": 0, "activeGroup": "Research" },
+      "openTabs": [
+        { "id": 201, "title": "Main doc", "url": "https://docs.example.com/main-plan", "group": "Research", "active": true, "pinned": false, "audible": false },
+        { "id": 202, "title": "Fresh brief", "url": "https://briefs.example.com/fresh-brief", "group": "Research", "active": false, "pinned": false, "audible": false },
+        { "id": 203, "title": "Old article", "url": "https://archive.example.com/old-article", "group": "Reading", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Research", "tabIds": [201, 202] }, { "name": "Reading", "tabIds": [203] }],
+      "behaviorSummary": {
+        "urls": {
+          "https://docs.example.com/main-plan": { "minutesSinceLastActive": 0, "visits24h": 4 },
+          "https://briefs.example.com/fresh-brief": { "minutesSinceLastActive": 46, "visits24h": 1, "safeSleepCount": 1 },
+          "https://archive.example.com/old-article": { "minutesSinceLastActive": 46, "visits24h": 1, "safeSleepCount": 1 }
+        }
+      },
+      "recentActivations": [{ "url": "https://docs.example.com/main-plan", "group": "Research" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "eventLog": [
+        { "timestamp": "2026-04-12T11:02:00.000Z", "eventType": "open", "tabId": 203, "url": "https://archive.example.com/old-article", "title": "Old article", "groupName": "Reading", "source": "user" },
+        { "timestamp": "2026-04-12T11:03:00.000Z", "eventType": "activate", "tabId": 203, "url": "https://archive.example.com/old-article", "title": "Old article", "groupName": "Reading", "source": "user" },
+        { "timestamp": "2026-04-12T11:50:00.000Z", "eventType": "open", "tabId": 202, "url": "https://briefs.example.com/fresh-brief", "title": "Fresh brief", "groupName": "Research", "source": "user" },
+        { "timestamp": "2026-04-12T11:52:00.000Z", "eventType": "activate", "tabId": 201, "url": "https://docs.example.com/main-plan", "title": "Main doc", "groupName": "Research", "source": "user" },
+        { "timestamp": "2026-04-12T11:54:00.000Z", "eventType": "open", "tabId": 202, "url": "https://briefs.example.com/fresh-brief", "title": "Fresh brief", "groupName": "Research", "source": "user" }
+      ],
+      "expected": {
+        "sleepCandidates": ["https://archive.example.com/old-article"],
+        "protectedTabs": ["https://docs.example.com/main-plan", "https://briefs.example.com/fresh-brief"],
+        "contextWake": { "triggerUrl": "https://docs.example.com/main-plan", "shouldWakeGroups": ["Research"] },
+        "benchmarkNotes": "Sequence should preserve the fresh brief because it is part of a new work burst."
+      }
+    },
+    {
+      "id": "same_summary_different_sequence_b",
+      "name": "Same Summary, Different Sequence B",
+      "goal": "Sleep the stale sibling when the same summary stats hide an older sequence.",
+      "category": "sleep",
+      "currentSession": { "timeOfDay": 14, "dayOfWeek": 1, "openTabCount": 3, "asleepTabCount": 0, "activeGroup": "Research" },
+      "openTabs": [
+        { "id": 211, "title": "Main doc", "url": "https://docs.example.com/main-plan", "group": "Research", "active": true, "pinned": false, "audible": false },
+        { "id": 212, "title": "Stale brief", "url": "https://briefs.example.com/stale-brief", "group": "Research", "active": false, "pinned": false, "audible": false },
+        { "id": 213, "title": "Old article", "url": "https://archive.example.com/old-article-b", "group": "Reading", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Research", "tabIds": [211, 212] }, { "name": "Reading", "tabIds": [213] }],
+      "behaviorSummary": {
+        "urls": {
+          "https://docs.example.com/main-plan": { "minutesSinceLastActive": 0, "visits24h": 4 },
+          "https://briefs.example.com/stale-brief": { "minutesSinceLastActive": 46, "visits24h": 1, "safeSleepCount": 1 },
+          "https://archive.example.com/old-article-b": { "minutesSinceLastActive": 46, "visits24h": 1, "safeSleepCount": 1 }
+        }
+      },
+      "recentActivations": [{ "url": "https://docs.example.com/main-plan", "group": "Research" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "eventLog": [
+        { "timestamp": "2026-04-12T11:00:00.000Z", "eventType": "open", "tabId": 212, "url": "https://briefs.example.com/stale-brief", "title": "Stale brief", "groupName": "Research", "source": "user" },
+        { "timestamp": "2026-04-12T11:02:00.000Z", "eventType": "activate", "tabId": 212, "url": "https://briefs.example.com/stale-brief", "title": "Stale brief", "groupName": "Research", "source": "user" },
+        { "timestamp": "2026-04-12T11:03:00.000Z", "eventType": "open", "tabId": 213, "url": "https://archive.example.com/old-article-b", "title": "Old article", "groupName": "Reading", "source": "user" },
+        { "timestamp": "2026-04-12T11:04:00.000Z", "eventType": "activate", "tabId": 213, "url": "https://archive.example.com/old-article-b", "title": "Old article", "groupName": "Reading", "source": "user" },
+        { "timestamp": "2026-04-12T11:52:00.000Z", "eventType": "activate", "tabId": 211, "url": "https://docs.example.com/main-plan", "title": "Main doc", "groupName": "Research", "source": "user" }
+      ],
+      "expected": {
+        "sleepCandidates": ["https://archive.example.com/old-article-b", "https://briefs.example.com/stale-brief"],
+        "protectedTabs": ["https://docs.example.com/main-plan"],
+        "contextWake": { "triggerUrl": "https://docs.example.com/main-plan", "shouldWakeGroups": ["Research"] },
+        "benchmarkNotes": "Matching summary stats should not hide that the stale brief belongs to an older sequence."
+      }
+    },
+    {
+      "id": "burst_then_return",
+      "name": "Burst Then Return",
+      "goal": "Sequence should preserve the main context after a quick burst of side tabs.",
+      "category": "sleep",
+      "currentSession": { "timeOfDay": 16, "dayOfWeek": 2, "openTabCount": 4, "asleepTabCount": 0, "activeGroup": "Writing" },
+      "openTabs": [
+        { "id": 221, "title": "Draft", "url": "https://docs.example.com/draft-v2", "group": "Writing", "active": true, "pinned": false, "audible": false },
+        { "id": 222, "title": "Reference burst 1", "url": "https://burst.example.com/ref1", "group": "Reference", "active": false, "pinned": false, "audible": false },
+        { "id": 223, "title": "Reference burst 2", "url": "https://burst.example.com/ref2", "group": "Reference", "active": false, "pinned": false, "audible": false },
+        { "id": 224, "title": "Reference burst 3", "url": "https://burst.example.com/ref3", "group": "Reference", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Writing", "tabIds": [221] }, { "name": "Reference", "tabIds": [222, 223, 224] }],
+      "behaviorSummary": {
+        "urls": {
+          "https://docs.example.com/draft-v2": { "minutesSinceLastActive": 0, "visits24h": 4 },
+          "https://burst.example.com/ref1": { "minutesSinceLastActive": 35, "visits24h": 1, "safeSleepCount": 1 },
+          "https://burst.example.com/ref2": { "minutesSinceLastActive": 36, "visits24h": 1, "safeSleepCount": 1 },
+          "https://burst.example.com/ref3": { "minutesSinceLastActive": 37, "visits24h": 1, "safeSleepCount": 1 }
+        }
+      },
+      "recentActivations": [{ "url": "https://docs.example.com/draft-v2", "group": "Writing" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "eventLog": [
+        { "timestamp": "2026-04-12T11:18:00.000Z", "eventType": "open", "tabId": 222, "url": "https://burst.example.com/ref1", "title": "Reference burst 1", "groupName": "Reference", "source": "user" },
+        { "timestamp": "2026-04-12T11:19:00.000Z", "eventType": "open", "tabId": 223, "url": "https://burst.example.com/ref2", "title": "Reference burst 2", "groupName": "Reference", "source": "user" },
+        { "timestamp": "2026-04-12T11:20:00.000Z", "eventType": "open", "tabId": 224, "url": "https://burst.example.com/ref3", "title": "Reference burst 3", "groupName": "Reference", "source": "user" },
+        { "timestamp": "2026-04-12T11:21:00.000Z", "eventType": "activate", "tabId": 221, "url": "https://docs.example.com/draft-v2", "title": "Draft", "groupName": "Writing", "source": "user" },
+        { "timestamp": "2026-04-12T11:22:00.000Z", "eventType": "activate", "tabId": 221, "url": "https://docs.example.com/draft-v2", "title": "Draft", "groupName": "Writing", "source": "user" }
+      ],
+      "expected": {
+        "sleepCandidates": ["https://burst.example.com/ref1", "https://burst.example.com/ref2", "https://burst.example.com/ref3"],
+        "protectedTabs": ["https://docs.example.com/draft-v2"],
+        "contextWake": { "triggerUrl": "https://docs.example.com/draft-v2", "shouldWakeGroups": ["Writing"] },
+        "benchmarkNotes": "The recent return to the draft should keep the core awake while the burst tabs are sleepable."
+      }
+    },
+    {
+      "id": "opened_not_used",
+      "name": "Opened But Not Used",
+      "goal": "Recently opened but untouched tabs should not automatically inherit recent-use protection.",
+      "category": "sleep",
+      "currentSession": { "timeOfDay": 16, "dayOfWeek": 2, "openTabCount": 3, "asleepTabCount": 0, "activeGroup": "Planning" },
+      "openTabs": [
+        { "id": 231, "title": "Plan", "url": "https://docs.example.com/plan", "group": "Planning", "active": true, "pinned": false, "audible": false },
+        { "id": 232, "title": "Unused tab", "url": "https://unused.example.com/new", "group": "Planning", "active": false, "pinned": false, "audible": false },
+        { "id": 233, "title": "Archive tab", "url": "https://archive.example.com/unused", "group": "Archive", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Planning", "tabIds": [231, 232] }, { "name": "Archive", "tabIds": [233] }],
+      "behaviorSummary": {
+        "urls": {
+          "https://docs.example.com/plan": { "minutesSinceLastActive": 0, "visits24h": 4 },
+          "https://unused.example.com/new": { "minutesSinceLastActive": 6, "visits24h": 1 },
+          "https://archive.example.com/unused": { "minutesSinceLastActive": 60, "visits24h": 1, "safeSleepCount": 2 }
+        }
+      },
+      "recentActivations": [{ "url": "https://docs.example.com/plan", "group": "Planning" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "eventLog": [
+        { "timestamp": "2026-04-12T11:53:00.000Z", "eventType": "open", "tabId": 232, "url": "https://unused.example.com/new", "title": "Unused tab", "groupName": "Planning", "source": "user" },
+        { "timestamp": "2026-04-12T11:54:00.000Z", "eventType": "activate", "tabId": 231, "url": "https://docs.example.com/plan", "title": "Plan", "groupName": "Planning", "source": "user" },
+        { "timestamp": "2026-04-12T11:00:00.000Z", "eventType": "activate", "tabId": 233, "url": "https://archive.example.com/unused", "title": "Archive tab", "groupName": "Archive", "source": "user" }
+      ],
+      "expected": {
+        "sleepCandidates": ["https://archive.example.com/unused", "https://unused.example.com/new"],
+        "protectedTabs": ["https://docs.example.com/plan"],
+        "contextWake": { "triggerUrl": "https://docs.example.com/plan", "shouldWakeGroups": ["Planning"] },
+        "benchmarkNotes": "Raw logs should show the unused tab was opened recently but never meaningfully entered the active workflow."
+      }
+    },
+    {
+      "id": "repeated_open_close_cycle",
+      "name": "Repeated Open-Close Cycle",
+      "goal": "Use repeated open-close instability as a sign that the tab is ephemeral and low-value to keep awake.",
+      "category": "sleep",
+      "currentSession": { "timeOfDay": 17, "dayOfWeek": 3, "openTabCount": 2, "asleepTabCount": 0, "activeGroup": "Ops" },
+      "openTabs": [
+        { "id": 241, "title": "Status page", "url": "https://status.example.com/live", "group": "Ops", "active": true, "pinned": false, "audible": false },
+        { "id": 242, "title": "Release notes", "url": "https://notes.example.com/release", "group": "Ops", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Ops", "tabIds": [241, 242] }],
+      "behaviorSummary": {
+        "urls": {
+          "https://status.example.com/live": { "minutesSinceLastActive": 0, "visits24h": 5 },
+          "https://notes.example.com/release": { "minutesSinceLastActive": 34, "visits24h": 2, "safeSleepCount": 1 }
+        }
+      },
+      "recentActivations": [{ "url": "https://status.example.com/live", "group": "Ops" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "eventLog": [
+        { "timestamp": "2026-04-12T10:45:00.000Z", "eventType": "open", "tabId": 242, "url": "https://notes.example.com/release", "title": "Release notes", "groupName": "Ops", "source": "user" },
+        { "timestamp": "2026-04-12T10:47:00.000Z", "eventType": "close", "tabId": 242, "url": "https://notes.example.com/release", "title": "Release notes", "groupName": "Ops", "source": "user" },
+        { "timestamp": "2026-04-12T11:10:00.000Z", "eventType": "open", "tabId": 242, "url": "https://notes.example.com/release", "title": "Release notes", "groupName": "Ops", "source": "user" },
+        { "timestamp": "2026-04-12T11:12:00.000Z", "eventType": "close", "tabId": 242, "url": "https://notes.example.com/release", "title": "Release notes", "groupName": "Ops", "source": "user" },
+        { "timestamp": "2026-04-12T11:26:00.000Z", "eventType": "activate", "tabId": 241, "url": "https://status.example.com/live", "title": "Status page", "groupName": "Ops", "source": "user" }
+      ],
+      "expected": {
+        "sleepCandidates": ["https://notes.example.com/release"],
+        "protectedTabs": ["https://status.example.com/live"],
+        "contextWake": { "triggerUrl": "https://status.example.com/live", "shouldWakeGroups": ["Ops"] },
+        "benchmarkNotes": "The release notes tab behaves like an ephemeral utility tab and should be easy to sleep."
+      }
+    },
+    {
+      "id": "feedback_after_sleep_sequence",
+      "name": "Feedback After Sleep Sequence",
+      "goal": "Recent undo and bad feedback should dominate older safe-sleep summaries.",
+      "category": "feedback",
+      "currentSession": { "timeOfDay": 18, "dayOfWeek": 3, "openTabCount": 3, "asleepTabCount": 0, "activeGroup": "Hiring" },
+      "openTabs": [
+        { "id": 251, "title": "Hiring board", "url": "https://jobs.example.com/board", "group": "Hiring", "active": true, "pinned": false, "audible": false },
+        { "id": 252, "title": "Candidate profile", "url": "https://people.example.com/candidate", "group": "Hiring", "active": false, "pinned": false, "audible": false },
+        { "id": 253, "title": "Reference note", "url": "https://notes.example.com/reference", "group": "Hiring", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Hiring", "tabIds": [251, 252, 253] }],
+      "behaviorSummary": {
+        "urls": {
+          "https://jobs.example.com/board": { "minutesSinceLastActive": 0, "visits24h": 5 },
+          "https://people.example.com/candidate": { "minutesSinceLastActive": 41, "visits24h": 1, "safeSleepCount": 3, "regretCount": 1 },
+          "https://notes.example.com/reference": { "minutesSinceLastActive": 43, "visits24h": 1, "safeSleepCount": 2 }
+        }
+      },
+      "recentActivations": [{ "url": "https://jobs.example.com/board", "group": "Hiring" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "eventLog": [
+        { "timestamp": "2026-04-12T11:05:00.000Z", "eventType": "sleep", "tabId": 252, "url": "https://people.example.com/candidate", "title": "Candidate profile", "groupName": "Hiring", "source": "agent" },
+        { "timestamp": "2026-04-12T11:07:00.000Z", "eventType": "undo", "tabId": 252, "url": "https://people.example.com/candidate", "title": "Candidate profile", "groupName": "Hiring", "source": "user" },
+        { "timestamp": "2026-04-12T11:08:00.000Z", "eventType": "bad_feedback", "tabId": 252, "url": "https://people.example.com/candidate", "title": "Candidate profile", "groupName": "Hiring", "source": "user" },
+        { "timestamp": "2026-04-12T11:17:00.000Z", "eventType": "good_feedback", "tabId": 253, "url": "https://notes.example.com/reference", "title": "Reference note", "groupName": "Hiring", "source": "user" },
+        { "timestamp": "2026-04-12T11:19:00.000Z", "eventType": "activate", "tabId": 251, "url": "https://jobs.example.com/board", "title": "Hiring board", "groupName": "Hiring", "source": "user" }
+      ],
+      "feedbackFixtures": [
+        { "type": "undo_after_auto_sleep", "targetUrl": "https://people.example.com/candidate" },
+        { "type": "explicit_bad", "targetUrl": "https://people.example.com/candidate" },
+        { "type": "explicit_good", "targetUrl": "https://notes.example.com/reference" }
+      ],
+      "expected": {
+        "sleepCandidates": ["https://notes.example.com/reference"],
+        "protectedTabs": ["https://jobs.example.com/board", "https://people.example.com/candidate"],
+        "contextWake": { "triggerUrl": "https://jobs.example.com/board", "shouldWakeGroups": ["Hiring"] },
+        "benchmarkNotes": "Recent negative feedback should override older safe-sleep counts for the candidate tab."
+      }
+    },
+    {
+      "id": "context_switch_with_sibling_wake",
+      "name": "Context Switch With Sibling Wake",
+      "goal": "Recent sequence should make wake explanations more context-aware.",
+      "category": "wake",
+      "currentSession": { "timeOfDay": 19, "dayOfWeek": 4, "openTabCount": 3, "asleepTabCount": 2, "activeGroup": "Launch" },
+      "openTabs": [
+        { "id": 261, "title": "Launch checklist", "url": "https://docs.example.com/launch", "group": "Launch", "active": true, "pinned": false, "audible": false },
+        { "id": 262, "title": "Metrics dashboard", "url": "https://metrics.example.com/live", "group": "Launch", "active": false, "pinned": false, "audible": false },
+        { "id": 263, "title": "Comms draft", "url": "https://mail.example.com/draft", "group": "Launch", "active": false, "pinned": false, "audible": false }
+      ],
+      "groupedContexts": [{ "name": "Launch", "tabIds": [261, 262, 263] }],
+      "behaviorSummary": {
+        "urls": {
+          "https://docs.example.com/launch": { "minutesSinceLastActive": 0, "visits24h": 4 },
+          "https://metrics.example.com/live": { "minutesSinceLastActive": 58, "visits24h": 2, "safeSleepCount": 1 },
+          "https://mail.example.com/draft": { "minutesSinceLastActive": 61, "visits24h": 2, "safeSleepCount": 1 }
+        }
+      },
+      "recentActivations": [{ "url": "https://docs.example.com/launch", "group": "Launch" }],
+      "protectedContexts": { "urls": [], "groups": [] },
+      "eventLog": [
+        { "timestamp": "2026-04-12T10:58:00.000Z", "eventType": "sleep", "tabId": 262, "url": "https://metrics.example.com/live", "title": "Metrics dashboard", "groupName": "Launch", "source": "agent" },
+        { "timestamp": "2026-04-12T10:59:00.000Z", "eventType": "sleep", "tabId": 263, "url": "https://mail.example.com/draft", "title": "Comms draft", "groupName": "Launch", "source": "agent" },
+        { "timestamp": "2026-04-12T11:17:00.000Z", "eventType": "activate", "tabId": 261, "url": "https://docs.example.com/launch", "title": "Launch checklist", "groupName": "Launch", "source": "user" },
+        { "timestamp": "2026-04-12T11:18:00.000Z", "eventType": "wake", "tabId": 262, "url": "https://metrics.example.com/live", "title": "Metrics dashboard", "groupName": "Launch", "source": "agent" },
+        { "timestamp": "2026-04-12T11:18:00.000Z", "eventType": "wake", "tabId": 263, "url": "https://mail.example.com/draft", "title": "Comms draft", "groupName": "Launch", "source": "agent" }
+      ],
+      "expected": {
+        "sleepCandidates": [],
+        "protectedTabs": ["https://docs.example.com/launch"],
+        "contextWake": {
+          "triggerUrl": "https://docs.example.com/launch",
+          "shouldWakeGroups": ["Launch"],
+          "shouldWakeUrls": ["https://metrics.example.com/live", "https://mail.example.com/draft"]
+        },
+        "benchmarkNotes": "A recent return to the launch checklist should support a clear sibling-wake explanation."
+      }
     }
   ]
 }

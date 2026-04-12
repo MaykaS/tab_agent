@@ -5,6 +5,7 @@ const STORAGE_ASLEEP_KEY = "asleepGroups";
 const STORAGE_SAVED_KEY = "memorySaved";
 const STATS_ESTIMATED_MEMORY_PER_TAB_MB = 50;
 const ACTION_FEED_LIMIT = 8;
+const EVENT_FEED_LIMIT = 12;
 
 document.addEventListener("DOMContentLoaded", async () => {
   await renderAll();
@@ -170,12 +171,13 @@ async function renderAgentActivitySection() {
   const wrap = document.getElementById("agent-activity-wrap");
   if (!wrap) return;
 
-  const [actions, openAiSummary] = await Promise.all([
+  const [actions, openAiSummary, tabEvents] = await Promise.all([
     getAgentActionLog(ACTION_FEED_LIMIT),
     getOpenAiPolicySummary(),
+    typeof getTabEventLog === "function" ? getTabEventLog(EVENT_FEED_LIMIT) : Promise.resolve([]),
   ]);
 
-  if (!actions.length && !openAiSummary) {
+  if (!actions.length && !openAiSummary && !tabEvents.length) {
     wrap.innerHTML = `
       <p style="font-size:13px;color:#888;margin-bottom:10px;">No autonomous actions yet.</p>
       <p style="font-size:12px;color:#aaa;">Once the background agent starts auto-sleeping or waking tabs, this feed will explain what it did and let you undo or protect contexts.</p>
@@ -229,6 +231,26 @@ async function renderAgentActivitySection() {
     `;
   }).join("");
 
+  const eventCards = tabEvents.map((event) => `
+    <div style="padding:10px 12px;border:1px solid #eee;border-radius:8px;background:#fff;">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+        <div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#555;">${escapeHtml(String(event.eventType || "unknown").replaceAll("_", " "))}</span>
+            <span style="font-size:11px;color:#888;">${escapeHtml(event.source || "user")}</span>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:#333;margin-top:4px;">
+            ${escapeHtml(event.groupName || event.title || "Untitled")}
+          </div>
+          <div style="font-size:12px;color:#666;line-height:1.5;margin-top:2px;word-break:break-word;">
+            ${escapeHtml(event.url || "")}
+          </div>
+        </div>
+        <div style="font-size:11px;color:#888;white-space:nowrap;">${new Date(event.timestamp).toLocaleTimeString()}</div>
+      </div>
+    </div>
+  `).join("");
+
   wrap.innerHTML = `
     ${summaryHtml}
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;">
@@ -236,6 +258,12 @@ async function renderAgentActivitySection() {
       <button class="btn btn-primary" id="generate-openai-summary">Generate AI summary</button>
     </div>
     <div style="display:grid;gap:10px;">${actionCards}</div>
+    <div style="margin-top:16px;">
+      <div style="font-size:12px;color:#666;margin-bottom:10px;">Recent tab event log</div>
+      ${eventCards
+        ? `<div style="display:grid;gap:8px;">${eventCards}</div>`
+        : `<div style="font-size:12px;color:#888;">No raw tab events captured yet. Reload the extension, switch tabs, or use sleep/wake to populate this feed.</div>`}
+    </div>
     <div id="agent-feedback-status" style="font-size:12px;color:#666;margin-top:10px;"></div>
   `;
 

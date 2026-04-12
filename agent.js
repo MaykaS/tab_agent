@@ -242,6 +242,15 @@ async function runAgentCycle() {
         actionId: action.id,
       });
 
+      await appendTabEvent({
+        eventType: "sleep",
+        tabId: candidate.tab.id,
+        url: candidate.tab.url,
+        title: candidate.tab.title || "Untitled",
+        groupName: candidate.groupName,
+        source: "agent",
+      });
+
       await logEvent("auto_slept", {
         tabCount: 1,
         groupName: candidate.groupName,
@@ -277,6 +286,7 @@ async function handleContextWake(activeTab) {
   const urls = asleepTabIds
     .map((tabId) => cached.tabMap[tabId]?.url)
     .filter(Boolean);
+  const titles = asleepTabIds.map((tabId) => cached.tabMap[tabId]?.title || "Untitled");
 
   await appendAgentAction({
     type: "auto_wake",
@@ -286,7 +296,7 @@ async function handleContextWake(activeTab) {
     target: {
       tabIds: asleepTabIds,
       urls,
-      titles: asleepTabIds.map((tabId) => cached.tabMap[tabId]?.title || "Untitled"),
+      titles,
       groupName,
       groupIndex,
     },
@@ -304,6 +314,17 @@ async function handleContextWake(activeTab) {
   const nextAsleepGroups = { ...(asleepGroups || {}) };
   delete nextAsleepGroups[groupIndex];
   await chrome.storage.local.set({ [ASLEEP_GROUPS_KEY]: nextAsleepGroups });
+
+  for (let i = 0; i < urls.length; i += 1) {
+    await appendTabEvent({
+      eventType: "wake",
+      tabId: asleepTabIds[i],
+      url: urls[i],
+      title: titles[i],
+      groupName,
+      source: "agent",
+    });
+  }
 
   await logEvent("auto_woken", {
     tabCount: asleepTabIds.length,

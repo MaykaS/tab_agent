@@ -16,11 +16,15 @@ const PROTECTED_CONTEXTS_KEY = "protectedContexts";
 const RECENT_ACTIVATIONS_KEY = "recentActivations";
 const AUTO_SLEEP_STATE_KEY = "autoSleepState";
 const OPENAI_POLICY_SUMMARY_KEY = "openAiPolicySummary";
+const TAB_EVENT_LOG_KEY = "tabEventLog";
 const PRUNE_AFTER_DAYS = 7;
 const ESTIMATED_MEMORY_PER_TAB_MB = 50;
 const MAX_ACTION_LOG = 200;
 const MAX_FEEDBACK_LOG = 200;
 const MAX_RECENT_ACTIVATIONS = 20;
+const MAX_TAB_EVENT_LOG = 500;
+const TAB_EVENT_LOG_WINDOW_HOURS = 24;
+const TAB_EVENT_CONTEXT_LIMIT = 75;
 const QUICK_REOPEN_MINUTES = 5;
 const SOON_REOPEN_MINUTES = 15;
 
@@ -43,6 +47,16 @@ function normalizeUrl(url) {
   } catch {
     return url;
   }
+}
+
+function shouldTrackTabUrl(url) {
+  return Boolean(
+    url &&
+    !url.startsWith("chrome://") &&
+    !url.startsWith("chrome-extension://") &&
+    !url.startsWith("edge://") &&
+    !url.startsWith("about:")
+  );
 }
 
 function getDefaultAgentPolicy() {
@@ -141,13 +155,56 @@ async function isProtectedContext(url, groupName) {
 }
 
 async function writeVisit(url) {
-  if (!url || url.startsWith("chrome://") || url.startsWith("chrome-extension://")) return;
+  if (!shouldTrackTabUrl(url)) return;
 
   const data = await chrome.storage.local.get(STORAGE_KEY);
   const visits = data[STORAGE_KEY] || [];
   visits.push({ url, normalizedUrl: normalizeUrl(url), timestamp: now() });
 
   await chrome.storage.local.set({ [STORAGE_KEY]: pruneOldVisits(visits) });
+}
+
+function pruneTabEventLog(events) {
+  const cutoff = now() - PRUNE_AFTER_DAYS * 24 * 60 * 60 * 1000;
+  return (events || [])
+    .filter((entry) => entry && entry.timestamp > cutoff)
+    .slice(0, MAX_TAB_EVENT_LOG);
+}
+
+async function appendTabEvent(entry) {
+  if (!shouldTrackTabUrl(entry?.url)) return null;
+
+  const data = await chrome.storage.local.get(TAB_EVENT_LOG_KEY);
+  const log = data[TAB_EVENT_LOG_KEY] || [];
+  const event = {
+    id: entry.id || `tev_${now()}_${Math.random().toString(36).slice(2, 7)}`,
+    timestamp: entry.timestamp || now(),
+    eventType: entry.eventType || "unknown",
+    url: entry.url,
+    normalizedUrl: normalizeUrl(entry.url),
+    title: entry.title || "Untitled",
+    groupName: entry.groupName || null,
+    source: entry.source || "user",
+    tabId: typeof entry.tabId === "number" ? entry.tabId : null,
+  };
+
+  const nextLog = pruneTabEventLog([event, ...log]);
+  await chrome.storage.local.set({ [TAB_EVENT_LOG_KEY]: nextLog });
+  return event;
+}
+
+async function getTabEventLog(limit = MAX_TAB_EVENT_LOG) {
+  const data = await chrome.storage.local.get(TAB_EVENT_LOG_KEY);
+  return (data[TAB_EVENT_LOG_KEY] || []).slice(0, limit);
+}
+
+async function getRecentTabEventsForContext(limit = TAB_EVENT_CONTEXT_LIMIT, windowHours = TAB_EVENT_LOG_WINDOW_HOURS) {
+  const cutoff = now() - windowHours * 60 * 60 * 1000;
+  const events = await getTabEventLog(MAX_TAB_EVENT_LOG);
+  return events
+    .filter((entry) => entry.timestamp > cutoff)
+    .slice(0, limit)
+    .reverse();
 }
 
 function pruneOldVisits(visits) {
@@ -243,6 +300,15 @@ async function recordRecentActivation(tab, groupName) {
 
   await chrome.storage.local.set({
     [RECENT_ACTIVATIONS_KEY]: recent.slice(0, MAX_RECENT_ACTIVATIONS),
+  });
+
+  await appendTabEvent({
+    eventType: "activate",
+    tabId: tab.id,
+    url: tab.url,
+    title: tab.title || "Untitled",
+    groupName: groupName || null,
+    source: "user",
   });
 
   return recent.slice(0, MAX_RECENT_ACTIVATIONS);
@@ -578,6 +644,17 @@ async function recordExplicitActionFeedback(actionId, value) {
   });
 
   if (primaryUrl) {
+    await appendTabEvent({
+      eventType: value === "bad" ? "bad_feedback" : "good_feedback",
+      tabId: action.target?.tabIds?.[0] || null,
+      url: primaryUrl,
+      title: action.target?.titles?.[0] || "Untitled",
+      groupName: action.target?.groupName || null,
+      source: "user",
+    });
+  }
+
+  if (primaryUrl) {
     await bumpOutcomeStats(primaryUrl, action.target?.groupName || null, value === "bad" ? "regret" : "safe");
   }
 
@@ -611,6 +688,17 @@ async function protectActionTarget(actionId) {
     url: primaryUrl,
     groupName: action.target?.groupName || null,
   });
+
+  if (primaryUrl) {
+    await appendTabEvent({
+      eventType: "protect",
+      tabId: action.target?.tabIds?.[0] || null,
+      url: primaryUrl,
+      title: action.target?.titles?.[0] || "Untitled",
+      groupName: action.target?.groupName || null,
+      source: "user",
+    });
+  }
 
   return updated;
 }
@@ -648,6 +736,18 @@ async function undoAgentAction(actionId) {
     url: action.target?.urls?.[0] || null,
     groupName: action.target?.groupName || null,
   });
+
+  for (let i = 0; i < (action.target?.urls || []).length; i += 1) {
+    const url = action.target.urls[i];
+    await appendTabEvent({
+      eventType: "undo",
+      tabId: action.target?.tabIds?.[i] || null,
+      url,
+      title: action.target?.titles?.[i] || "Untitled",
+      groupName: action.target?.groupName || null,
+      source: "user",
+    });
+  }
 
   return true;
 }
@@ -756,6 +856,7 @@ async function buildStudySnapshot(data) {
         ruleBasedSleepCount: 0,
         estimatedRuleMemorySavedMb: 0,
       },
+      openTabsSnapshot: [],
     };
   }
 
@@ -798,6 +899,17 @@ async function buildStudySnapshot(data) {
   const openTabCount = groupSnapshots.reduce((sum, group) => sum + group.openTabCount, 0);
   const asleepGroupCount = Object.keys(asleepGroups).filter((key) => groups[Number(key)]).length;
   const asleepTabCount = Object.values(asleepGroups).reduce((sum, tabIds) => sum + tabIds.length, 0);
+  const openTabsSnapshot = groupSnapshots.flatMap((group) =>
+    group.tabsDetailed
+      .filter((tab) => tab.isOpen)
+      .map((tab) => ({
+        tabId: tab.liveTabId,
+        url: tab.url,
+        normalizedUrl: normalizeUrl(tab.url),
+        title: tab.title,
+        groupName: tab.groupName,
+      }))
+  );
 
   return {
     participantId,
@@ -832,6 +944,7 @@ async function buildStudySnapshot(data) {
       explicitGoodCount: feedbackLog.filter((entry) => entry.type === "good_feedback").length,
     },
     baselineComparison: buildBaselineComparison(groupSnapshots, urlModel, protectedContexts),
+    openTabsSnapshot,
   };
 }
 
@@ -865,8 +978,11 @@ async function getAllDataForExport() {
     recentActivations: await getRecentActivations(),
     urlModel: data[URL_MODEL_KEY] || {},
     groupModel: data[GROUP_MODEL_KEY] || {},
+    tabEventLog: data[TAB_EVENT_LOG_KEY] || [],
+    recentTabEvents: await getRecentTabEventsForContext(),
     autonomousSummary: studySnapshot.autonomousSummary,
     baselineComparison: studySnapshot.baselineComparison,
     openAiPolicySummary: await getOpenAiPolicySummary(),
+    openTabsSnapshot: studySnapshot.openTabsSnapshot || [],
   };
 }

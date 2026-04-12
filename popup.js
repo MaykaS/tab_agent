@@ -359,6 +359,19 @@ async function sleepGroup(group, tabMap, frequentUrls, groupIndex, groupEl, slee
     catch (e) { console.warn("Could not discard tab", tabId, e); }
   }
 
+  for (const tabId of toSleep) {
+    const tab = tabMap[tabId];
+    if (!tab?.url) continue;
+    await appendTabEvent({
+      eventType: "sleep",
+      tabId,
+      url: tab.url,
+      title: tab.title || "Untitled",
+      groupName: group.name,
+      source: "user",
+    });
+  }
+
   // Persist asleep state
   asleepGroups[groupIndex] = toSleep;
   await updateAsleepState(asleepGroups);
@@ -399,6 +412,21 @@ async function wakeGroup(groupIndex, groupEl, sleepBtn, wakeBtn, statusBadge, li
   for (const tabId of tabIds) {
     try { await chrome.tabs.reload(tabId); }
     catch (e) { console.warn("Could not reload tab", tabId, e); }
+  }
+
+  if (cached?.tabMap) {
+    for (const tabId of tabIds) {
+      const url = cached.tabMap[tabId]?.url;
+      if (!url) continue;
+      await appendTabEvent({
+        eventType: "wake",
+        tabId,
+        url,
+        title: cached.tabMap[tabId]?.title || "Untitled",
+        groupName: cached.tabMap[tabId]?.groupName || null,
+        source: "user",
+      });
+    }
   }
 
   // Clear persisted asleep state
