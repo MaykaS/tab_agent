@@ -156,7 +156,7 @@ async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
             <span class="mem-label">~${estMB.toFixed(0)} MB</span>
           </div>
           <div style="font-size:12px;color:#888;margin-top:4px;">
-            ${openInGroup} open tab${openInGroup !== 1 ? "s" : ""} Â· estimated
+            ${openInGroup} open tab${openInGroup !== 1 ? "s" : ""} · estimated
           </div>
         </td>
       </tr>
@@ -199,7 +199,7 @@ async function renderAgentActivitySection() {
         <div style="font-size:12px;font-weight:600;color:#1a6fa3;margin-bottom:6px;">OpenAI policy summary</div>
         <div style="font-size:12px;color:#555;line-height:1.6;">${escapeHtml(openAiSummary.summary || "No summary yet.")}</div>
         ${Array.isArray(openAiSummary.recommendations) && openAiSummary.recommendations.length
-          ? `<div style="font-size:12px;color:#666;margin-top:8px;">Recommendations: ${escapeHtml(openAiSummary.recommendations.join(" Â· "))}</div>`
+          ? `<div style="font-size:12px;color:#666;margin-top:8px;">Recommendations: ${escapeHtml(openAiSummary.recommendations.join(" · "))}</div>`
           : ""}
       </div>
     `
@@ -368,7 +368,7 @@ async function renderSubmitSection() {
       <div style="margin-top:8px;">
         <p style="font-size:13px;color:#555;margin-bottom:14px;line-height:1.6;">
           Submitting your data helps validate the research claims for this project.
-          Only usage statistics are sent - no tab URLs or personal information. Memory values are estimated.
+          The study payload can include grouped tab metadata, event logs, action outcomes, and learning signals used for benchmarking. Do not submit if your current tabs include sensitive information. Memory values are estimated.
         </p>
         <div style="font-size:12px;color:#555;margin-bottom:10px;">
           Participant ID: <strong>${escapeHtml(participantId)}</strong>
@@ -392,21 +392,21 @@ async function renderSubmitSection() {
     const autoSummary = exportData.autonomousSummary || {};
     const baseline = exportData.baselineComparison || {};
     document.getElementById("submit-preview").innerHTML = `
-      Participant ID: <strong>${escapeHtml(exportData.participantId || participantId)}</strong> &nbsp;Â·&nbsp;
-      Tabs: <strong>${exportData.tabCount ?? 0}</strong> &nbsp;Â·&nbsp;
-      Groups: <strong>${exportData.groupCount ?? 0}</strong> &nbsp;Â·&nbsp;
-      Open tabs: <strong>${exportData.openTabCount ?? 0}</strong> &nbsp;Â·&nbsp;
+      Participant ID: <strong>${escapeHtml(exportData.participantId || participantId)}</strong> &nbsp;·&nbsp;
+      Tabs: <strong>${exportData.tabCount ?? 0}</strong> &nbsp;·&nbsp;
+      Groups: <strong>${exportData.groupCount ?? 0}</strong> &nbsp;·&nbsp;
+      Open tabs: <strong>${exportData.openTabCount ?? 0}</strong> &nbsp;·&nbsp;
       Asleep tabs: <strong>${exportData.asleepTabCount ?? 0}</strong><br>
-      Sessions logged: <strong>${(exportData.sessionLog || []).length}</strong> &nbsp;Â·&nbsp;
-      Rating sessions: <strong>${exportData.ratingCount ?? 0}</strong> &nbsp;Â·&nbsp;
-      Avg rating: <strong>${Number(exportData.avgRating ?? 0).toFixed(1)}/5</strong> &nbsp;Â·&nbsp;
-      Memory saved: <strong>${Number(exportData.memorySavedEstimateMb ?? exportData.memorySaved ?? 0).toFixed(0)} MB est.</strong> &nbsp;Â·&nbsp;
-      Total tab memory: <strong>${Number(exportData.totalTabMemoryEstimateMb ?? 0).toFixed(0)} MB est.</strong> &nbsp;Â·&nbsp;
+      Sessions logged: <strong>${(exportData.sessionLog || []).length}</strong> &nbsp;·&nbsp;
+      Rating sessions: <strong>${exportData.ratingCount ?? 0}</strong> &nbsp;·&nbsp;
+      Avg rating: <strong>${Number(exportData.avgRating ?? 0).toFixed(1)}/5</strong> &nbsp;·&nbsp;
+      Memory saved: <strong>${Number(exportData.memorySavedEstimateMb ?? exportData.memorySaved ?? 0).toFixed(0)} MB est.</strong> &nbsp;·&nbsp;
+      Total tab memory: <strong>${Number(exportData.totalTabMemoryEstimateMb ?? 0).toFixed(0)} MB est.</strong> &nbsp;·&nbsp;
       Tab visits tracked: <strong>${exportData.visitCount ?? 0}</strong><br>
-      Auto-sleeps: <strong>${autoSummary.autoSleepCount ?? 0}</strong> &nbsp;Â·&nbsp;
-      Auto-wakes: <strong>${autoSummary.autoWakeCount ?? 0}</strong> &nbsp;Â·&nbsp;
-      Undo count: <strong>${autoSummary.undoCount ?? 0}</strong> &nbsp;Â·&nbsp;
-      Regret count: <strong>${autoSummary.regretCount ?? 0}</strong> &nbsp;Â·&nbsp;
+      Auto-sleeps: <strong>${autoSummary.autoSleepCount ?? 0}</strong> &nbsp;·&nbsp;
+      Auto-wakes: <strong>${autoSummary.autoWakeCount ?? 0}</strong> &nbsp;·&nbsp;
+      Undo count: <strong>${autoSummary.undoCount ?? 0}</strong> &nbsp;·&nbsp;
+      Regret count: <strong>${autoSummary.regretCount ?? 0}</strong> &nbsp;·&nbsp;
       Rule baseline est.: <strong>${baseline.estimatedRuleMemorySavedMb ?? 0} MB</strong>
     `;
 
@@ -669,3 +669,4 @@ async function loadExportData() {
     baselineComparison: {},
   };
 }
+
