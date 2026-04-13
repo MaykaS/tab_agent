@@ -1,0 +1,251 @@
+{
+  "version": 1,
+  "sourceExport": "real_export.json",
+  "purpose": "Personalized benchmark for evaluating memory_off vs memory_on using contexts observed in a real Tab Agent export.",
+  "notes": [
+    "These scenarios are intentionally personalized to the user export rather than synthetic benchmark fixtures.",
+    "They are meant to answer whether synthesized memory helps on repeated-risk, repeated-protect, mixed, and wake-related contexts."
+  ],
+  "scenarios": [
+    {
+      "id": "outlook_guardrail_priority",
+      "name": "Outlook Guardrail Priority",
+      "research_category": "feedback-sensitive",
+      "goal": "A repeatedly protected Outlook inbox should be treated as a guardrail-first context, not a normal sleep candidate.",
+      "memory_signals": ["protected_url", "protected_domain", "mixed_context"],
+      "open_tabs": [
+        {
+          "title": "Outlook Inbox",
+          "url": "https://outlook.cloud.microsoft/mail/inbox/id/AAQkADViNTg0NDA4LTg2MmEtNDNhYi05OWY3LWU1ZThlMTgyMWQzNAAQAHle4xhcasBGkZkjJlbV3oI%3D",
+          "group": null,
+          "active": false
+        },
+        {
+          "title": "Project Notes",
+          "url": "https://www.notion.so/Tab_Agent-33fae558f1fc8048a5aff85f3310dccf",
+          "group": "Notion & Tabs",
+          "active": true
+        }
+      ],
+      "expected": {
+        "memory_off_risk": "Without memory, this tab may look sleepable because it has also accumulated positive outcomes.",
+        "memory_on_behavior": "With memory, Outlook should be treated as protected and preserved.",
+        "sleep_candidates": [],
+        "protected_tabs": [
+          "https://outlook.cloud.microsoft/mail/inbox/id/AAQkADViNTg0NDA4LTg2MmEtNDNhYi05OWY3LWU1ZThlMTgyMWQzNAAQAHle4xhcasBGkZkjJlbV3oI%3D"
+        ]
+      }
+    },
+    {
+      "id": "vercel_admin_repeat_regret",
+      "name": "Vercel Admin Repeat Regret",
+      "research_category": "feedback-sensitive",
+      "goal": "The admin page has repeated undo/negative outcomes and should receive a conservative memory adjustment.",
+      "memory_signals": ["risky_url", "risky_domain"],
+      "open_tabs": [
+        {
+          "title": "Tab Agent Admin",
+          "url": "https://tab-agent-web.vercel.app/admin",
+          "group": "Tab Management Tools",
+          "active": false
+        },
+        {
+          "title": "Repo Tree",
+          "url": "https://github.com/MaykaS/tab-agent-web/tree/master",
+          "group": "Tab Management Tools",
+          "active": true
+        }
+      ],
+      "expected": {
+        "memory_off_risk": "Without memory, the admin page may be treated like a stale utility tab.",
+        "memory_on_behavior": "With memory, the admin page should be preserved because it has repeated regret-linked evidence.",
+        "sleep_candidates": [],
+        "protected_tabs": [
+          "https://tab-agent-web.vercel.app/admin",
+          "https://github.com/MaykaS/tab-agent-web/tree/master"
+        ]
+      }
+    },
+    {
+      "id": "vercel_deployment_guardrail",
+      "name": "Vercel Deployment Guardrail",
+      "research_category": "feedback-sensitive",
+      "goal": "A specific Vercel deployment tab has repeated negative outcomes and explicit protection, so memory should prioritize guardrail behavior.",
+      "memory_signals": ["protected_url", "protected_domain", "risky_domain"],
+      "open_tabs": [
+        {
+          "title": "Vercel Deployment",
+          "url": "https://vercel.com/mayasag10-5355s-projects/tab-agent-web/72C8WDkShnimgnMuqpz4SoFg9opg",
+          "group": "Tab Management Tools",
+          "active": false
+        },
+        {
+          "title": "Vercel Deployment 2",
+          "url": "https://vercel.com/mayasag10-5355s-projects/tab-agent-web/6LP8dA32qMjrfG2WQXejF4Vwju3o",
+          "group": "Tab Management Tools",
+          "active": false
+        }
+      ],
+      "expected": {
+        "memory_off_risk": "Without memory, deployment tabs can look stale and be slept too aggressively.",
+        "memory_on_behavior": "With memory, the explicitly protected deployment should be guardrail-first, and similar Vercel tabs should lean conservative.",
+        "sleep_candidates": [],
+        "protected_tabs": [
+          "https://vercel.com/mayasag10-5355s-projects/tab-agent-web/72C8WDkShnimgnMuqpz4SoFg9opg",
+          "https://vercel.com/mayasag10-5355s-projects/tab-agent-web/6LP8dA32qMjrfG2WQXejF4Vwju3o"
+        ]
+      }
+    },
+    {
+      "id": "notion_workspace_mixed_context",
+      "name": "Notion Workspace Mixed Context",
+      "research_category": "feedback-sensitive",
+      "goal": "The main Notion workspace has both positive and regret-linked evidence, so memory should mark it as mixed rather than confidently safe.",
+      "memory_signals": ["mixed_url", "mixed_group", "risky_domain"],
+      "open_tabs": [
+        {
+          "title": "Tab Agent Notion",
+          "url": "https://www.notion.so/Tab_Agent-33fae558f1fc8048a5aff85f3310dccf",
+          "group": "Notion & Tabs",
+          "active": false
+        },
+        {
+          "title": "Secondary Notion Page",
+          "url": "https://www.notion.so/HTC-25bae558f1fc800e8752cb9f725ec0ee",
+          "group": "Notion & Tabs",
+          "active": true
+        }
+      ],
+      "expected": {
+        "memory_off_risk": "Without memory, summary features may over-trust safe outcomes and sleep this context too eagerly.",
+        "memory_on_behavior": "With memory, the context should be treated as mixed and kept conservative unless clearly stale.",
+        "sleep_candidates": [],
+        "protected_tabs": [
+          "https://www.notion.so/Tab_Agent-33fae558f1fc8048a5aff85f3310dccf",
+          "https://www.notion.so/HTC-25bae558f1fc800e8752cb9f725ec0ee"
+        ]
+      }
+    },
+    {
+      "id": "linkedin_profile_mixed_context",
+      "name": "LinkedIn Profile Mixed Context",
+      "research_category": "feedback-sensitive",
+      "goal": "A LinkedIn profile tab has both safe and regret outcomes, so memory should avoid overconfidence and preserve it under ambiguity.",
+      "memory_signals": ["mixed_url", "mixed_group", "risky_domain"],
+      "open_tabs": [
+        {
+          "title": "Candidate Profile",
+          "url": "https://www.linkedin.com/in/chrisbrabham-mba/",
+          "group": "LinkedIn Profile",
+          "active": false
+        },
+        {
+          "title": "Ashby Job Page",
+          "url": "https://jobs.ashbyhq.com/openai/d6d4fbf8-1976-4745-bf48-1a3cca5503b9?utm_source=8lvZy0eqYJ",
+          "group": "Career & Internships",
+          "active": true
+        }
+      ],
+      "expected": {
+        "memory_off_risk": "Without memory, the LinkedIn profile may be treated inconsistently based only on recency.",
+        "memory_on_behavior": "With memory, the profile should be treated as mixed and protected under uncertainty.",
+        "sleep_candidates": [],
+        "protected_tabs": [
+          "https://www.linkedin.com/in/chrisbrabham-mba/"
+        ]
+      }
+    },
+    {
+      "id": "career_context_wake_return",
+      "name": "Career Context Wake Return",
+      "research_category": "context wake",
+      "goal": "Returning to the Career & Internships context should favor waking related sibling tabs because the export shows repeated useful wakes.",
+      "memory_signals": ["wake_group"],
+      "open_tabs": [
+        {
+          "title": "Ashby Job Page",
+          "url": "https://jobs.ashbyhq.com/openai/d6d4fbf8-1976-4745-bf48-1a3cca5503b9?utm_source=8lvZy0eqYJ",
+          "group": "Career & Internships",
+          "active": true
+        },
+        {
+          "title": "LinkedIn Profile",
+          "url": "https://www.linkedin.com/in/chrisbrabham-mba/",
+          "group": "Career & Internships",
+          "active": false,
+          "asleep": true
+        }
+      ],
+      "expected": {
+        "memory_off_risk": "Without memory, wake behavior may rely only on generic group matching.",
+        "memory_on_behavior": "With memory, re-entering Career & Internships should strongly support waking the sibling context.",
+        "wake_groups": ["Career & Internships"]
+      }
+    },
+    {
+      "id": "notion_context_wake_return",
+      "name": "Notion Context Wake Return",
+      "research_category": "context wake",
+      "goal": "Returning to Notion & Tabs should support waking related sibling tabs because the export shows repeated useful wakes there.",
+      "memory_signals": ["wake_group", "mixed_group"],
+      "open_tabs": [
+        {
+          "title": "Main Notion Page",
+          "url": "https://www.notion.so/Tab_Agent-33fae558f1fc8048a5aff85f3310dccf",
+          "group": "Notion & Tabs",
+          "active": true
+        },
+        {
+          "title": "Secondary Notion Page",
+          "url": "https://www.notion.so/HTC-25bae558f1fc800e8752cb9f725ec0ee",
+          "group": "Notion & Tabs",
+          "active": false,
+          "asleep": true
+        }
+      ],
+      "expected": {
+        "memory_off_risk": "Without memory, wake logic may miss that this context has repeatedly benefited from sibling restoration.",
+        "memory_on_behavior": "With memory, Notion & Tabs should strongly support sibling wake on return.",
+        "wake_groups": ["Notion & Tabs"]
+      }
+    },
+    {
+      "id": "known_safe_reference_tabs",
+      "name": "Known Safe Reference Tabs",
+      "research_category": "routine low-need sleep",
+      "goal": "Tabs with repeated positive outcomes and no protection should be reasonable sleep candidates when inactive.",
+      "memory_signals": ["safe_url", "safe_domain"],
+      "open_tabs": [
+        {
+          "title": "Chrome Web Store Docs",
+          "url": "https://developer.chrome.com/docs/webstore/register/",
+          "group": "Tab Management Tools",
+          "active": false
+        },
+        {
+          "title": "GitHub Repo Tree",
+          "url": "https://github.com/MaykaS/tab-agent-web/tree/master",
+          "group": "Tab Management Tools",
+          "active": false
+        },
+        {
+          "title": "Admin Dashboard",
+          "url": "https://tab-agent-web.vercel.app/admin",
+          "group": "Tab Management Tools",
+          "active": true
+        }
+      ],
+      "expected": {
+        "memory_off_risk": "Without memory, all three tabs may be treated similarly if only recency is considered.",
+        "memory_on_behavior": "With memory, the docs and repo tree should lean safe-to-sleep, while admin remains protected by risky memory.",
+        "sleep_candidates": [
+          "https://developer.chrome.com/docs/webstore/register/",
+          "https://github.com/MaykaS/tab-agent-web/tree/master"
+        ],
+        "protected_tabs": [
+          "https://tab-agent-web.vercel.app/admin"
+        ]
+      }
+    }
+  ]
+}

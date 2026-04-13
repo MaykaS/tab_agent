@@ -253,7 +253,91 @@ This row format is the bridge between the fixture benchmark, later memory evalua
 
 ## Findings
 
-Placeholder for validated findings once the benchmark and memory comparison are rerun with the stabilized terminology and taxonomy.
+### Context Benchmark Findings
+
+The fixed benchmark remains the right evaluation surface for context design.
+
+Current stable takeaways from the benchmark artifacts in [agent_test_set/benchmark_summary_current.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/agent_test_set/benchmark_summary_current.md):
+
+- `summary_only` is already a strong compact baseline and clearly outperforms `recency_only`
+- `raw_log_only` and `hybrid` are strongest on `temporal ambiguity`
+- the clearest context-design result is that raw recent sequence helps where summary statistics hide ordering and timing
+
+This supports the first core claim:
+
+- richer context helps, and the benefit is especially visible on temporally ambiguous cases
+
+### Memory Evaluation Findings
+
+The first attempt to apply real synthesized memory to the fixed synthetic benchmark produced `0/20` useful scenarios.
+
+This was a useful negative result, not a failure:
+
+- the memory artifact was learned from one user's real browsing contexts
+- the fixed benchmark mostly uses synthetic/example URLs and domains
+- so personalized memory had little overlap with that benchmark
+
+This led to an important evaluation split:
+
+- fixed benchmark = context evaluation
+- personalized benchmark = memory evaluation
+
+That split now lives in:
+
+- [agent_test_set/personalized_memory_benchmark.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/agent_test_set/personalized_memory_benchmark.md)
+- [agent_test_set/personalized_memory_benchmark.json](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/agent_test_set/personalized_memory_benchmark.json)
+
+### First Real Memory Result
+
+Using the real export-derived memory artifact from:
+
+- [agent_test_set/real_export.memory.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/agent_test_set/real_export.memory.md)
+
+and the personalized evaluation in:
+
+- [agent_test_set/personalized_memory_eval.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/agent_test_set/personalized_memory_eval.md)
+
+the first explicit `memory_off` vs `memory_on` comparison shows:
+
+- scenarios evaluated: `8`
+- exact matches with `memory_off`: `0`
+- exact matches with `memory_on`: `3`
+- scenarios improved by memory: `6`
+
+Category-level result:
+
+- `feedback-sensitive`: `5/5` improved with memory
+- `routine low-need sleep`: `1/1` improved with memory
+- `context wake`: `0/2` improved with memory
+
+This supports the second core claim in a refined form:
+
+- feedback-derived memory is already useful on repeated-risk, repeated-protect, mixed, and safe-sleep scenarios for the same user it was learned from
+- wake behavior still needs more work, so memory is not yet uniformly helpful across all autonomous behaviors
+
+### Memory Interpretation Notes
+
+The current memory artifact is now decision-grade enough to be meaningful:
+
+- protected contexts are separated into guardrail-first memory
+- risky contexts are separated from safe contexts
+- mixed contexts are called out explicitly rather than treated as confidently safe or risky
+
+This is important for the presentation and blog story because it shows that the useful question is not only:
+
+- does memory exist?
+
+but more specifically:
+
+- when does personalized memory help, and where does it remain unresolved?
+
+### Product Interpretation Notes
+
+For product behavior, the current split still makes sense:
+
+- continuous background tracking should continue
+- regrouping can stay explicit/manual in v1
+- later, smart regroup suggestions may be worth adding, but aggressive automatic regrouping would likely make the UI feel unstable
 
 ## Presentation Outline
 

@@ -1,0 +1,21 @@
+scenario_id,scenario_name,research_category,memory_useful,protected_hits,protected_misses,sleep_hits,sleep_false_positives,wake_hits,recommended_protected,recommended_sleep_boost,recommended_wake_groups,notes
+deep_work_cluster,Deep Work Cluster,routine low-need sleep,False,0,4,0,1,0,[],"[""https://github.com/org/repo/pull/1""]",[],misses 4 expected protected tabs; adds 1 extra sleep-leaning tabs
+heavy_productivity_cluster,Heavy Productivity Cluster,frequent/protected preservation,False,0,4,0,0,0,[],[],[],misses 4 expected protected tabs
+research_sprawl,Research Sprawl,routine low-need sleep,False,0,2,0,0,0,[],[],[],misses 2 expected protected tabs
+media_audible_safety,Media Audible Safety,safety,False,0,2,0,0,0,[],[],[],misses 2 expected protected tabs
+pinned_tab_safety,Pinned Tab Safety,safety,False,0,2,0,0,0,[],[],[],misses 2 expected protected tabs
+recent_activity_safety,Recent Activity Safety,safety,False,0,2,0,0,0,[],[],[],misses 2 expected protected tabs
+frequent_tab_protection,Frequent Tab Protection,frequent/protected preservation,False,0,2,0,0,0,[],[],[],misses 2 expected protected tabs
+explicit_protected_context,Explicit Protected Context,safety,False,0,2,0,0,0,[],[],[],misses 2 expected protected tabs
+regret_history_tab,Regret History Tab,feedback-sensitive,False,0,2,0,0,0,[],[],[],misses 2 expected protected tabs
+context_wake_success,Context Wake Success,wake,False,0,1,0,1,0,[],"[""https://github.com/org/repo""]",[],misses 1 expected protected tabs; adds 1 extra sleep-leaning tabs
+context_wake_noop,Context Wake No-op,wake,False,0,1,0,0,0,[],[],[],misses 1 expected protected tabs
+mixed_safe_sleep_batch,Mixed Safe Sleep Batch,routine low-need sleep,False,0,1,0,0,0,[],[],[],misses 1 expected protected tabs
+assistant_rule_agent_comparison,Assistant vs Rule vs Agent,feedback-sensitive,False,0,2,0,0,0,[],[],[],misses 2 expected protected tabs
+same_summary_different_sequence_a,"Same Summary, Different Sequence A",temporal ambiguity,False,0,2,0,0,0,[],[],[],misses 2 expected protected tabs
+same_summary_different_sequence_b,"Same Summary, Different Sequence B",temporal ambiguity,False,0,1,0,0,0,[],[],[],misses 1 expected protected tabs
+burst_then_return,Burst Then Return,temporal ambiguity,False,0,1,0,0,0,[],[],[],misses 1 expected protected tabs
+opened_not_used,Opened But Not Used,temporal ambiguity,False,0,1,0,0,0,[],[],[],misses 1 expected protected tabs
+repeated_open_close_cycle,Repeated Open-Close Cycle,temporal ambiguity,False,0,1,0,0,0,[],[],[],misses 1 expected protected tabs
+feedback_after_sleep_sequence,Feedback After Sleep Sequence,feedback-sensitive,False,0,2,0,0,0,[],[],[],misses 2 expected protected tabs
+context_switch_with_sibling_wake,Context Switch With Sibling Wake,wake,False,0,1,0,0,0,[],[],[],misses 1 expected protected tabs
