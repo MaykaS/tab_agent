@@ -203,6 +203,8 @@ Important:
 - the **extension runtime** lives in this repo
 - using the Vercel link alone is **not enough** to generate real tab behavior data
 
+For a single-file version you can send directly, use [PILOT_USER_SETUP.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/PILOT_USER_SETUP.md).
+
 ## Gemini Nano setup
 
 Enable both Chrome flags:
