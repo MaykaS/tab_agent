@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Tab Agent — Stats</title>
+  <title>Tab Agent - Stats</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -36,7 +36,6 @@
       margin-bottom: 14px;
     }
 
-    /* Summary row */
     .summary-row {
       display: flex;
       gap: 24px;
@@ -58,7 +57,6 @@
     .stat-value.green { color: #2e7d32; }
     .stat-value.blue  { color: #1a6fa3; }
 
-    /* Group memory table */
     table { width: 100%; border-collapse: collapse; }
     th {
       text-align: left;
@@ -111,7 +109,6 @@
     .mem-bar-fill.asleep { background: #bbb; }
     .mem-label { font-size: 12px; color: #555; min-width: 52px; text-align: right; }
 
-    /* Agreement section */
     .agreement-intro {
       font-size: 13px;
       color: #555;
@@ -142,13 +139,16 @@
 
     .stars { display: flex; gap: 6px; }
     .star {
-      width: 28px; height: 28px;
+      width: 28px;
+      height: 28px;
       border-radius: 6px;
       border: 1px solid #ddd;
       background: #fff;
       cursor: pointer;
       font-size: 16px;
-      display: flex; align-items: center; justify-content: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       transition: background 0.15s;
     }
     .star:hover, .star.selected { background: #fff3cd; border-color: #ffc107; }
@@ -199,16 +199,15 @@
   </style>
 </head>
 <body>
-  <h1>Tab Agent — Stats</h1>
+  <h1>Tab Agent - Stats</h1>
   <p class="subtitle">Memory usage and grouping quality measurements</p>
 
-  <!-- Summary -->
   <div class="card">
     <div class="card-title">Summary</div>
     <div class="summary-row">
       <div class="stat-box">
         <div class="stat-label">Total tab memory (est.)</div>
-        <div class="stat-value blue" id="total-memory">—</div>
+        <div class="stat-value blue" id="total-memory">-</div>
         <div class="stat-unit">MB est.</div>
       </div>
       <div class="stat-box">
@@ -218,23 +217,22 @@
       </div>
       <div class="stat-box">
         <div class="stat-label">Tabs open</div>
-        <div class="stat-value" id="tab-count">—</div>
+        <div class="stat-value" id="tab-count">-</div>
         <div class="stat-unit">tabs</div>
       </div>
       <div class="stat-box">
         <div class="stat-label">Groups</div>
-        <div class="stat-value" id="group-count">—</div>
+        <div class="stat-value" id="group-count">-</div>
         <div class="stat-unit">groups</div>
       </div>
     </div>
     <p class="refresh-note">* Memory data refreshes every 5 seconds. Memory values are estimated at ~50MB per open tab on Chrome stable.</p>
   </div>
 
-  <!-- Memory per group -->
   <div class="card">
     <div class="card-title">Memory per group</div>
     <div id="group-table-wrap">
-      <p id="no-data">No groups cached yet — open the Tab Agent popup first.</p>
+      <p id="no-data">No groups cached yet - open the Tab Agent popup first.</p>
     </div>
   </div>
 
@@ -245,21 +243,19 @@
     </div>
   </div>
 
-  <!-- Research data submission -->
   <div class="card">
     <div class="card-title">Submit data to study</div>
     <div id="submit-wrap"></div>
   </div>
 
-  <!-- Grouping agreement test -->
   <div class="card">
-    <div class="card-title">Grouping quality — agreement test</div>
+    <div class="card-title">Grouping quality - agreement test</div>
     <p class="agreement-intro">
       Rate how well Tab Agent grouped your tabs compared to how <em>you</em> would have grouped them.
       1 star = completely wrong, 5 stars = exactly right. This measures Claim 1: grouping quality.
     </p>
     <div id="rating-form">
-      <p id="no-groups-msg" style="font-size:13px;color:#888;">No groups to rate — open the popup first.</p>
+      <p id="no-groups-msg" style="font-size:13px;color:#888;">No groups to rate - open the popup first.</p>
     </div>
     <div class="score-result" id="score-result"></div>
   </div>

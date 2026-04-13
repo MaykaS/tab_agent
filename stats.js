@@ -7,6 +7,33 @@ const STATS_ESTIMATED_MEMORY_PER_TAB_MB = 50;
 const ACTION_FEED_LIMIT = 8;
 const EVENT_FEED_LIMIT = 12;
 
+function buildExportFilename(participantId) {
+  const stamp = new Date().toISOString().replaceAll(":", "-");
+  const safeParticipantId = String(participantId || "tab-agent").replace(/[^a-z0-9_-]+/gi, "-");
+  return `tab-agent-export-${safeParticipantId}-${stamp}.json`;
+}
+
+function downloadJsonFile(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function captureDetailsState(root) {
+  if (!root) return {};
+  const state = {};
+  root.querySelectorAll("details[id]").forEach((details) => {
+    state[details.id] = details.open;
+  });
+  return state;
+}
+
 function truncateMiddle(text, maxLength = 72) {
   const value = String(text || "");
   if (value.length <= maxLength) return value;
@@ -156,7 +183,7 @@ async function renderGroupTable(groups, tabMap, asleep, realTabIds, realUrls) {
             <span class="mem-label">~${estMB.toFixed(0)} MB</span>
           </div>
           <div style="font-size:12px;color:#888;margin-top:4px;">
-            ${openInGroup} open tab${openInGroup !== 1 ? "s" : ""} · estimated
+            ${openInGroup} open tab${openInGroup !== 1 ? "s" : ""} - estimated
           </div>
         </td>
       </tr>
@@ -199,7 +226,7 @@ async function renderAgentActivitySection() {
         <div style="font-size:12px;font-weight:600;color:#1a6fa3;margin-bottom:6px;">OpenAI policy summary</div>
         <div style="font-size:12px;color:#555;line-height:1.6;">${escapeHtml(openAiSummary.summary || "No summary yet.")}</div>
         ${Array.isArray(openAiSummary.recommendations) && openAiSummary.recommendations.length
-          ? `<div style="font-size:12px;color:#666;margin-top:8px;">Recommendations: ${escapeHtml(openAiSummary.recommendations.join(" · "))}</div>`
+          ? `<div style="font-size:12px;color:#666;margin-top:8px;">Recommendations: ${escapeHtml(openAiSummary.recommendations.join(" | "))}</div>`
           : ""}
       </div>
     `
@@ -259,13 +286,18 @@ async function renderAgentActivitySection() {
     </div>
   `).join("");
 
+  const detailsState = captureDetailsState(wrap);
+
   wrap.innerHTML = `
     ${summaryHtml}
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;">
       <div style="font-size:12px;color:#666;">Autonomous activity details</div>
-      <button class="btn btn-primary" id="generate-openai-summary">Generate AI summary</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+        <button class="btn btn-secondary" id="export-agent-data">Export data</button>
+        <button class="btn btn-primary" id="generate-openai-summary">Generate AI summary</button>
+      </div>
     </div>
-    <details style="border:1px solid #eee;border-radius:8px;background:#fcfcfc;">
+    <details id="agent-actions-details" style="border:1px solid #eee;border-radius:8px;background:#fcfcfc;" ${detailsState["agent-actions-details"] ? "open" : ""}>
       <summary style="padding:10px 12px;cursor:pointer;font-size:12px;color:#666;font-weight:600;list-style:none;">
         Recent autonomous actions and feedback (${actions.length})
       </summary>
@@ -276,7 +308,7 @@ async function renderAgentActivitySection() {
       </div>
     </details>
     <div style="margin-top:16px;">
-      <details style="border:1px solid #eee;border-radius:8px;background:#fcfcfc;">
+      <details id="tab-event-details" style="border:1px solid #eee;border-radius:8px;background:#fcfcfc;" ${detailsState["tab-event-details"] ? "open" : ""}>
         <summary style="padding:10px 12px;cursor:pointer;font-size:12px;color:#666;font-weight:600;list-style:none;">
           Recent tab event log (${tabEvents.length})
         </summary>
@@ -292,6 +324,12 @@ async function renderAgentActivitySection() {
     </div>
     <div id="agent-feedback-status" style="font-size:12px;color:#666;margin-top:10px;"></div>
   `;
+
+  wrap.querySelectorAll("details button").forEach((button) => {
+    const stopToggle = (event) => event.stopPropagation();
+    button.addEventListener("pointerdown", stopToggle);
+    button.addEventListener("click", stopToggle);
+  });
 
   wrap.querySelectorAll("[data-agent-action]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -318,9 +356,36 @@ async function renderAgentActivitySection() {
     });
   });
 
+  const exportButton = document.getElementById("export-agent-data");
+  if (exportButton) {
+    exportButton.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const status = document.getElementById("agent-feedback-status");
+      exportButton.disabled = true;
+      exportButton.textContent = "Exporting...";
+      status.textContent = "Preparing export...";
+      status.style.color = "#666";
+
+      try {
+        const payload = await loadExportData();
+        downloadJsonFile(buildExportFilename(payload.participantId), payload);
+        status.textContent = "Export downloaded.";
+      } catch (error) {
+        status.textContent = `Export failed: ${error.message}`;
+        status.style.color = "#c0392b";
+      } finally {
+        exportButton.disabled = false;
+        exportButton.textContent = "Export data";
+      }
+    });
+  }
+
   const summaryButton = document.getElementById("generate-openai-summary");
   if (summaryButton) {
-    summaryButton.addEventListener("click", async () => {
+    summaryButton.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       const status = document.getElementById("agent-feedback-status");
       summaryButton.disabled = true;
       summaryButton.textContent = "Generating...";
@@ -392,21 +457,21 @@ async function renderSubmitSection() {
     const autoSummary = exportData.autonomousSummary || {};
     const baseline = exportData.baselineComparison || {};
     document.getElementById("submit-preview").innerHTML = `
-      Participant ID: <strong>${escapeHtml(exportData.participantId || participantId)}</strong> &nbsp;·&nbsp;
-      Tabs: <strong>${exportData.tabCount ?? 0}</strong> &nbsp;·&nbsp;
-      Groups: <strong>${exportData.groupCount ?? 0}</strong> &nbsp;·&nbsp;
-      Open tabs: <strong>${exportData.openTabCount ?? 0}</strong> &nbsp;·&nbsp;
+      Participant ID: <strong>${escapeHtml(exportData.participantId || participantId)}</strong> &nbsp;-&nbsp;
+      Tabs: <strong>${exportData.tabCount ?? 0}</strong> &nbsp;-&nbsp;
+      Groups: <strong>${exportData.groupCount ?? 0}</strong> &nbsp;-&nbsp;
+      Open tabs: <strong>${exportData.openTabCount ?? 0}</strong> &nbsp;-&nbsp;
       Asleep tabs: <strong>${exportData.asleepTabCount ?? 0}</strong><br>
-      Sessions logged: <strong>${(exportData.sessionLog || []).length}</strong> &nbsp;·&nbsp;
-      Rating sessions: <strong>${exportData.ratingCount ?? 0}</strong> &nbsp;·&nbsp;
-      Avg rating: <strong>${Number(exportData.avgRating ?? 0).toFixed(1)}/5</strong> &nbsp;·&nbsp;
-      Memory saved: <strong>${Number(exportData.memorySavedEstimateMb ?? exportData.memorySaved ?? 0).toFixed(0)} MB est.</strong> &nbsp;·&nbsp;
-      Total tab memory: <strong>${Number(exportData.totalTabMemoryEstimateMb ?? 0).toFixed(0)} MB est.</strong> &nbsp;·&nbsp;
+      Sessions logged: <strong>${(exportData.sessionLog || []).length}</strong> &nbsp;-&nbsp;
+      Rating sessions: <strong>${exportData.ratingCount ?? 0}</strong> &nbsp;-&nbsp;
+      Avg rating: <strong>${Number(exportData.avgRating ?? 0).toFixed(1)}/5</strong> &nbsp;-&nbsp;
+      Memory saved: <strong>${Number(exportData.memorySavedEstimateMb ?? exportData.memorySaved ?? 0).toFixed(0)} MB est.</strong> &nbsp;-&nbsp;
+      Total tab memory: <strong>${Number(exportData.totalTabMemoryEstimateMb ?? 0).toFixed(0)} MB est.</strong> &nbsp;-&nbsp;
       Tab visits tracked: <strong>${exportData.visitCount ?? 0}</strong><br>
-      Auto-sleeps: <strong>${autoSummary.autoSleepCount ?? 0}</strong> &nbsp;·&nbsp;
-      Auto-wakes: <strong>${autoSummary.autoWakeCount ?? 0}</strong> &nbsp;·&nbsp;
-      Undo count: <strong>${autoSummary.undoCount ?? 0}</strong> &nbsp;·&nbsp;
-      Regret count: <strong>${autoSummary.regretCount ?? 0}</strong> &nbsp;·&nbsp;
+      Auto-sleeps: <strong>${autoSummary.autoSleepCount ?? 0}</strong> &nbsp;-&nbsp;
+      Auto-wakes: <strong>${autoSummary.autoWakeCount ?? 0}</strong> &nbsp;-&nbsp;
+      Undo count: <strong>${autoSummary.undoCount ?? 0}</strong> &nbsp;-&nbsp;
+      Regret count: <strong>${autoSummary.regretCount ?? 0}</strong> &nbsp;-&nbsp;
       Rule baseline est.: <strong>${baseline.estimatedRuleMemorySavedMb ?? 0} MB</strong>
     `;
 
@@ -491,7 +556,7 @@ function renderRatingForm(groups, tabMap) {
       <div class="stars" id="stars-${i}">
         ${[1, 2, 3, 4, 5].map((n) => `
           <div class="star" data-group="${i}" data-val="${n}" title="${ratingLabel(n)}">
-            ${n <= 2 ? "âœ•" : n === 3 ? "~" : "âœ“"}
+            ${n <= 2 ? "x" : n === 3 ? "~" : "v"}
           </div>
         `).join("")}
       </div>
