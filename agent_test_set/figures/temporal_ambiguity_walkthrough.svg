@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" fill="none">
+<rect width="100%" height="100%" fill="#f7fbff"/>
+<rect x="18" y="18" width="calc(100% - 36px)" height="calc(100% - 36px)" rx="18" fill="#ffffff" stroke="#d7e4ef"/>
+<text x="60" y="70" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" fill="#15324b" text-anchor="start">Temporal Ambiguity Walkthrough</text>
+<text x="60" y="100" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#4c667d" text-anchor="start">same_summary_different_sequence_a: raw sequence preserves the fresh brief while summary-only sleeps too much.</text>
+<line x1="120" y1="250" x2="1080" y2="250" stroke="#cad9e6" stroke-width="3"/>
+<rect x="132" y="232" width="36" height="36" rx="18" fill="#2e75b6"/>
+<text x="150" y="216" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#2e75b6" text-anchor="middle">open</text>
+<text x="150" y="312" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#36506a" text-anchor="middle">Old article</text>
+<text x="150" y="330" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400" fill="#6c8296" text-anchor="middle">Reading</text>
+<text x="150" y="348" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400" fill="#6c8296" text-anchor="middle">11:02</text>
+<rect x="322" y="232" width="36" height="36" rx="18" fill="#2e75b6"/>
+<text x="340" y="216" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#2e75b6" text-anchor="middle">activate</text>
+<text x="340" y="312" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#36506a" text-anchor="middle">Old article</text>
+<text x="340" y="330" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400" fill="#6c8296" text-anchor="middle">Reading</text>
+<text x="340" y="348" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400" fill="#6c8296" text-anchor="middle">11:03</text>
+<rect x="512" y="232" width="36" height="36" rx="18" fill="#2e75b6"/>
+<text x="530" y="216" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#2e75b6" text-anchor="middle">open</text>
+<text x="530" y="312" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#36506a" text-anchor="middle">Fresh brief</text>
+<text x="530" y="330" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400" fill="#6c8296" text-anchor="middle">Research</text>
+<text x="530" y="348" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400" fill="#6c8296" text-anchor="middle">11:50</text>
+<rect x="702" y="232" width="36" height="36" rx="18" fill="#2e75b6"/>
+<text x="720" y="216" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#2e75b6" text-anchor="middle">activate</text>
+<text x="720" y="312" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#36506a" text-anchor="middle">Main doc</text>
+<text x="720" y="330" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400" fill="#6c8296" text-anchor="middle">Research</text>
+<text x="720" y="348" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400" fill="#6c8296" text-anchor="middle">11:52</text>
+<rect x="892" y="232" width="36" height="36" rx="18" fill="#2e75b6"/>
+<text x="910" y="216" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#2e75b6" text-anchor="middle">open</text>
+<text x="910" y="312" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="400" fill="#36506a" text-anchor="middle">Fresh brief</text>
+<text x="910" y="330" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400" fill="#6c8296" text-anchor="middle">Research</text>
+<text x="910" y="348" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="400" fill="#6c8296" text-anchor="middle">11:54</text>
+<rect x="70" y="360" width="500" height="120" rx="16" fill="#eef5fb"/>
+<text x="95" y="395" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#15324b" text-anchor="start">What the sequence shows</text>
+<text x="95" y="425" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- The old article belonged to an older reading context.</text>
+<text x="95" y="450" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- The fresh brief was opened near the return to the main doc.</text>
+<text x="95" y="475" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Raw logs capture that burst; summary-only context misses it.</text>
+<rect x="620" y="360" width="510" height="120" rx="16" fill="#fff3e8"/>
+<text x="645" y="395" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#15324b" text-anchor="start">Benchmark outcome</text>
+<text x="645" y="425" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- recency_only: wrong</text>
+<text x="645" y="450" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- summary_only: wrong</text>
+<text x="645" y="475" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- raw_log_only + hybrid: exact match</text>
+</svg>

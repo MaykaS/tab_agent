@@ -1,0 +1,2 @@
+scenario_id,scenario_name,fixture_category,research_category,variant,memory_condition,expected_sleep_set,predicted_sleep_set,exact_match,precision,recall,f1,protected_violations,regret_sensitive_errors,undo_sensitive_errors,wake_success,notes
+same_summary_different_sequence_a,Same Summary, Different Sequence A,sleep,temporal ambiguity,raw_log_only,memory_off,"[""https://archive.example.com/old-article""]","[""https://archive.example.com/old-article""]",true,1.0,1.0,1.0,0,0,0,,"Raw sequence resolved the temporal ambiguity hidden by summary-only context."
