@@ -111,8 +111,9 @@ The extension makes sleep/wake decisions locally. OpenAI is used only for:
 - threshold-tuning suggestions
 - protected-context suggestions
 
-The web layer can now compare three context variants for summaries:
+The web layer can now compare four context variants for summaries:
 
+- `recency_only`
 - `summary_only`
 - `raw_log_only`
 - `hybrid`
@@ -158,6 +159,14 @@ Use it to test:
 
 The generated benchmark report lives at [agent_test_set/context_benchmark_report.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/agent_test_set/context_benchmark_report.md).
 
+The current evaluation story is split in two:
+
+- **fixed benchmark** for context evaluation
+- **personalized benchmark** for memory evaluation
+
+This matters because personalized memory only helps when the evaluation overlaps
+with the user's real learned contexts.
+
 ## Install
 
 1. Clone the repo
@@ -176,6 +185,23 @@ After code changes:
 2. Reopen the popup or Stats page
 
 If you changed autonomous behavior, feedback logging, or the Stats UI, you must reload the unpacked extension before Chrome will pick up the new version.
+
+## Pilot user setup
+
+If you want someone else, like a professor or pilot user, to try Tab Agent:
+
+1. Share this repo, not just the Vercel link
+2. Have them install the extension from `chrome://extensions`
+3. Make sure Gemini Nano is enabled in Chrome
+4. Ask them to use the extension naturally for a few days
+5. Ask them to use `Undo`, `Protect`, `Good`, and `Bad` when relevant
+6. At the end, have them open the Stats page and click `Export data`
+
+Important:
+
+- the **Vercel site** is useful for the landing page, backend, and admin views
+- the **extension runtime** lives in this repo
+- using the Vercel link alone is **not enough** to generate real tab behavior data
 
 ## Gemini Nano setup
 

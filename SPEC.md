@@ -122,6 +122,7 @@ Structured context only:
 
 Supported context variants:
 
+- `recency_only`
 - `summary_only`
 - `raw_log_only`
 - `hybrid`
@@ -184,6 +185,11 @@ The reusable test set must cover:
 - rule vs assistant vs agent comparison cases
 - temporal-order context ambiguity cases
 - summary vs raw vs hybrid context comparisons
+
+The current evaluation split is:
+
+- fixed benchmark for context variants
+- personalized benchmark for feedback-derived memory
 
 ## Acceptance criteria
 

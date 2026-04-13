@@ -139,8 +139,9 @@ OpenAI is used to:
 - recommend threshold changes
 - identify contexts that should be protected
 
-The summary layer can benchmark three context formulations:
+The summary layer can benchmark four context formulations:
 
+- thin recency-only context
 - summarized behavior only
 - raw recent event log only
 - hybrid context
@@ -208,3 +209,11 @@ The next product-learning step is:
 - keep hard guardrails fixed
 - use exported action/outcome/event data for offline learning
 - then add small, safe personalized threshold updates before any broader post-training loop
+
+The current research framing also separates:
+
+- a fixed benchmark for context quality
+- a personalized benchmark for memory quality
+
+That split matters because lightweight memory is user-specific in a way that
+general context evaluation is not.
