@@ -6,7 +6,7 @@ For the current product framing, read [V2_PRODUCT_BRIEF.md](/C:/Users/mayas/OneD
 
 It does four things:
 
-1. **Groups** tabs by topic with Gemini Nano
+1. **Groups** tabs by topic with immediate local grouping and optional Gemini Nano refinement
 2. **Sleeps** low-need tabs with a local autonomous policy
 3. **Wakes** related slept tabs when the user returns to a context
 4. **Learns** from undo, protect, reopen, and explicit feedback
@@ -95,6 +95,12 @@ The Stats page now surfaces the agent loop in a compact way:
 
 - a collapsible feed for recent autonomous actions and feedback
 - a collapsible raw tab event log for temporal debugging and context inspection
+
+The popup is intentionally optimized for responsiveness:
+
+- it can render a useful local grouping immediately
+- it can refine that grouping with on-device AI after the first paint
+- it does not need to block the first user interaction on model latency
 
 ## Why this counts as agentic
 

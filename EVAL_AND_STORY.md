@@ -28,6 +28,25 @@ This project does not claim:
 - cloud LLM control over browser actions
 - full RL training infrastructure
 
+### Current LLM Context Surface
+
+The advisory summary layer now consumes structured context that can include:
+
+- `autonomyState`
+- current session counts and recent activations
+- summarized URL and group behavior
+- learned caution / safe-sleep / wake memory
+- recent autonomous actions
+- recent feedback
+- benchmark and evaluation summaries
+- optional truncated raw event log
+
+This keeps the product aligned with the professor's guidance:
+
+- summarized behavior for compact context
+- raw event windows for temporal ambiguity
+- memory-derived caution for lightweight learning
+
 ## Professor Guidance -> Project Actions
 
 | Professor guidance | What it means | Project action |

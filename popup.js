@@ -10,6 +10,7 @@ const STORAGE_GROUPS_KEY = "cachedGroups";
 const STORAGE_ASLEEP_KEY = "asleepGroups";
 const STORAGE_SAVED_KEY = "memorySaved";
 const MODE_NOTICE_ID = "mode-notice";
+let latestRunId = 0;
 
 regroupBtn.addEventListener("click", () => runAgent(true));
 statsBtn.addEventListener("click", () => {
@@ -19,6 +20,7 @@ statsBtn.addEventListener("click", () => {
 runAgent(false);
 
 async function runAgent(forceRegroup) {
+  const runId = ++latestRunId;
   hideError();
   hideModeNotice();
   groupsEl.style.display = "none";
@@ -37,22 +39,16 @@ async function runAgent(forceRegroup) {
       if (cached) {
         showModeNotice(autonomyState, cached.groupMode || "cached");
         renderGroups(cached.groups, cached.tabMap, frequentUrls, cached.asleepGroups);
+        if (cached.groupMode !== "ai_grouping") {
+          void upgradeGroupingInBackground(runId, autonomyState, frequentUrls);
+        }
         return;
       }
     }
 
-    showStatus("Grouping your tabs...");
-
     const tabs = await observeTabs();
     if (tabs.length === 0) {
       showError("No tabs found to group.");
-      return;
-    }
-
-    const groupingResult = await decideGroups(tabs);
-    const groups = groupingResult.groups;
-    if (!groups || groups.length === 0) {
-      showError("Couldn't generate groups. Try reopening the popup.");
       return;
     }
 
@@ -61,18 +57,20 @@ async function runAgent(forceRegroup) {
       tabMap[tab.id] = tab;
     }
 
-    await saveCachedState(groups, tabMap, {}, groupingResult.mode);
+    const fallbackGroups = buildFallbackGroups(tabs);
+    await saveCachedState(fallbackGroups, tabMap, {}, "fallback_grouping");
     await logEvent("grouped", {
       tabCount: tabs.length,
-      groupCount: groups.length,
+      groupCount: fallbackGroups.length,
       frequentTabCount: frequentUrls.size,
-      groupNames: groups.map((group) => group.name),
+      groupNames: fallbackGroups.map((group) => group.name),
       forced: forceRegroup,
-      mode: groupingResult.mode,
+      mode: "fallback_grouping",
     });
 
-    showModeNotice(autonomyState, groupingResult.mode);
-    renderGroups(groups, tabMap, frequentUrls, {});
+    showModeNotice(autonomyState, "fallback_grouping");
+    renderGroups(fallbackGroups, tabMap, frequentUrls, {});
+    void upgradeGroupingInBackground(runId, autonomyState, frequentUrls, tabs, tabMap, forceRegroup);
   } catch (err) {
     console.error("Tab Agent error:", err);
     showError("Something went wrong: " + err.message);
@@ -117,13 +115,32 @@ async function observeTabs() {
     );
 }
 
-async function decideGroups(tabs) {
-  const aiResult = await tryAiGrouping(tabs);
-  if (aiResult) return aiResult;
-  return {
-    groups: buildFallbackGroups(tabs),
-    mode: "fallback_grouping",
-  };
+async function upgradeGroupingInBackground(runId, autonomyState, frequentUrls, tabs = null, tabMap = null, forced = false) {
+  const sourceTabs = tabs || (await observeTabs());
+  if (!sourceTabs.length) return;
+
+  const sourceTabMap = tabMap || Object.fromEntries(sourceTabs.map((tab) => [tab.id, tab]));
+
+  showStatus("Refining groups with on-device AI...");
+  const aiResult = await tryAiGrouping(sourceTabs);
+  if (!aiResult || latestRunId !== runId) {
+    hideStatus();
+    return;
+  }
+
+  await saveCachedState(aiResult.groups, sourceTabMap, {}, aiResult.mode);
+  await logEvent("regrouped_with_ai", {
+    tabCount: sourceTabs.length,
+    groupCount: aiResult.groups.length,
+    frequentTabCount: frequentUrls.size,
+    groupNames: aiResult.groups.map((group) => group.name),
+    forced,
+    mode: aiResult.mode,
+  });
+
+  groupsEl.innerHTML = "";
+  showModeNotice(autonomyState, aiResult.mode);
+  renderGroups(aiResult.groups, sourceTabMap, frequentUrls, {});
 }
 
 async function tryAiGrouping(tabs) {
