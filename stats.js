@@ -82,6 +82,33 @@ function renderMemoryTags(items, emptyLabel, tone = "neutral", labelKey = "label
     .join("");
 }
 
+function splitCurrentAndLearnedAreas(items, exportData) {
+  const openTabs = exportData.openTabsSnapshot || [];
+  const openGroups = new Set((exportData.groups || []).filter((group) => group.openTabCount > 0).map((group) => group.name));
+  const openUrls = new Set(openTabs.map((tab) => normalizeUrl(tab.url)));
+  const openTitles = new Set(openTabs.map((tab) => String(tab.title || "").trim()).filter(Boolean));
+
+  const current = [];
+  const learned = [];
+
+  for (const item of items || []) {
+    const label = String(item?.label || item?.groupName || "").trim();
+    const key = item?.key ? normalizeUrl(item.key) : "";
+    const matchesCurrent =
+      (item?.type === "group" && openGroups.has(label)) ||
+      (key && openUrls.has(key)) ||
+      (label && openTitles.has(label));
+
+    if (matchesCurrent) {
+      current.push(item);
+    } else {
+      learned.push(item);
+    }
+  }
+
+  return { current, learned };
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   await renderAll();
 
@@ -260,6 +287,8 @@ async function renderAgentActivitySection() {
   const cautionAreas = (memorySummary.cautionAreas || []).slice(0, 4);
   const safeAreas = (memorySummary.safeSleepAreas || []).slice(0, 4);
   const wakePatterns = (memorySummary.wakePatterns || []).slice(0, 3);
+  const cautionSplit = splitCurrentAndLearnedAreas(cautionAreas, exportData);
+  const safeSplit = splitCurrentAndLearnedAreas(safeAreas, exportData);
   const explicitGood = autoSummary.explicitGoodCount ?? 0;
   const frictionCount =
     (evaluationSummary.feedbackSpecificErrors?.undoCount ?? autoSummary.undoCount ?? 0) +
@@ -351,13 +380,17 @@ async function renderAgentActivitySection() {
         ${buildMiniStat("Recent friction", frictionCount, frictionCount > 0 ? "caution" : "neutral")}
       </div>
       <div style="padding:12px 14px;border:1px solid #eceff3;border-radius:10px;background:#fafafa;">
-        <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">What I'm protecting</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(cautionAreas, "Nothing protected yet.", "caution")}</div>
+        <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">Protected right now</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(cautionSplit.current, "No current protected area.", "caution")}</div>
       </div>
       <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
         <div style="padding:12px 14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
+          <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">Learned caution areas</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(cautionSplit.learned, "No learned caution yet.", "caution")}</div>
+        </div>
+        <div style="padding:12px 14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
           <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">Lower-risk areas</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(safeAreas, "Still learning safe contexts.", "safe")}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(safeSplit.learned.concat(safeSplit.current), "Still learning safe contexts.", "safe")}</div>
         </div>
         <div style="padding:12px 14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
           <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">Useful wake contexts</div>
