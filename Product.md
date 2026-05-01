@@ -1,5 +1,7 @@
 # Tab Agent - Product Document
 
+This file captures the longer product arc. For the current polished v2 framing, see [V2_PRODUCT_BRIEF.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/V2_PRODUCT_BRIEF.md).
+
 ## Product vision
 
 Tab Agent is moving from a smart tab assistant to a **personalized browser memory-management agent**.
@@ -191,6 +193,8 @@ The goal is:
 The near-term target is:
 
 - a working Chrome browser agent
+- observation mode before autonomous sleep
+- trust-earned autonomy for low-risk contexts
 - conservative autonomous sleep
 - context wake
 - action feed

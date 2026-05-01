@@ -1,5 +1,7 @@
 # SPEC.md - Tab Agent
 
+For the current product-facing framing, see [V2_PRODUCT_BRIEF.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/V2_PRODUCT_BRIEF.md).
+
 ## One-line spec
 
 Tab Agent is a Chrome extension that combines:
@@ -31,6 +33,7 @@ Already implemented:
 
 Already implemented:
 
+- observation mode before trusted autonomy
 - autonomous sleep
 - context wake
 - action log
@@ -51,6 +54,10 @@ The local policy predicts:
 - `willNeedInNext15Min`
 
 ## Safety rules
+
+The current product rule is:
+
+- it is better to miss a sleep than to break focus
 
 The agent must not auto-sleep:
 

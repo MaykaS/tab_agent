@@ -1,5 +1,7 @@
 # Tab Agent Evaluation and Story
 
+Companion product framing lives in [V2_PRODUCT_BRIEF.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/V2_PRODUCT_BRIEF.md).
+
 ## Project Framing
 
 Tab Agent is a browser-only autonomous tab management agent, and this project studies what kinds of context and feedback-derived memory help it make better sleep and wake decisions.

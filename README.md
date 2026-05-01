@@ -2,6 +2,8 @@
 
 Tab Agent is a **browser tab memory-management agent**.
 
+For the current product framing, read [V2_PRODUCT_BRIEF.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/V2_PRODUCT_BRIEF.md).
+
 It does four things:
 
 1. **Groups** tabs by topic with Gemini Nano
@@ -44,7 +46,15 @@ The separate `tab_agent_web` repo contains:
 
 ## Current product state
 
-Tab Agent is now more than an assistant, but it is still a **v1 browser agent**, not a full computer-wide memory manager.
+Tab Agent is now more than an assistant, but it is still a **browser-tab agent**, not a full computer-wide memory manager.
+
+The current direction is:
+
+- **focus-first**
+- **knowledge-worker oriented**
+- **observe then act**
+- **trust-earned autonomy**
+- **caution-first memory**
 
 ### Manual assistant features
 
@@ -58,6 +68,7 @@ Tab Agent is now more than an assistant, but it is still a **v1 browser agent**,
 
 ### Agentic features
 
+- observation mode before trusted autonomy
 - autonomous sleep
 - context wake
 - action log
@@ -69,6 +80,16 @@ Tab Agent is now more than an assistant, but it is still a **v1 browser agent**,
 - adaptive policy thresholds from recent outcomes
 - exported training examples for offline learning
 - OpenAI-generated policy summary
+
+### Current product posture
+
+The product is intentionally conservative.
+
+- new users start in `observation mode`
+- autonomous sleep unlocks only in `trusted_autonomy`
+- wake is allowed earlier than sleep
+- learned caution matters more than weak positive signals
+- it is better to miss a sleep than to break focus
 
 The Stats page now surfaces the agent loop in a compact way:
 
@@ -124,6 +145,8 @@ This keeps the agent:
 - fast
 - explainable
 - benchmarkable
+
+For the deeper product strategy behind this split, see [V2_PRODUCT_BRIEF.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/V2_PRODUCT_BRIEF.md).
 
 ## Benchmark framing
 
