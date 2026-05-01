@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="700" viewBox="0 0 1280 700" fill="none">
+<rect width="100%" height="100%" fill="#f7fbff"/>
+<rect x="18" y="18" width="calc(100% - 36px)" height="calc(100% - 36px)" rx="18" fill="#ffffff" stroke="#d7e4ef"/>
+<text x="60" y="70" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" fill="#15324b" text-anchor="start">Learning Loop</text>
+<text x="60" y="100" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#4c667d" text-anchor="start">Poor person's RL: logs and feedback are summarized into readable memory, then evaluated as advisory policy context.</text>
+<rect x="80" y="170" width="230" height="120" rx="18" fill="#eef7f1"/>
+<text x="100" y="206" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#15324b" text-anchor="start">1. Agent acts</text>
+<text x="100" y="238" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">auto_sleep / auto_wake</text>
+<text x="100" y="260" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">stores score, reason,</text>
+<text x="100" y="282" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">features, outcome</text>
+<rect x="360" y="170" width="230" height="120" rx="18" fill="#fff3e8"/>
+<text x="380" y="206" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#15324b" text-anchor="start">2. User signals</text>
+<text x="380" y="238" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">Undo</text>
+<text x="380" y="260" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">Protect</text>
+<text x="380" y="282" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">Good / Bad</text>
+<text x="380" y="304" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">Reopen / manual wake</text>
+<rect x="640" y="170" width="260" height="120" rx="18" fill="#eaf3fb"/>
+<text x="660" y="206" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#15324b" text-anchor="start">3. Export logs</text>
+<text x="660" y="238" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">actionLog</text>
+<text x="660" y="260" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">feedbackLog</text>
+<text x="660" y="282" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">tabEventLog</text>
+<text x="660" y="304" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">trainingExamples</text>
+<rect x="950" y="170" width="250" height="120" rx="18" fill="#f6eefb"/>
+<text x="970" y="206" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#15324b" text-anchor="start">4. Build memory</text>
+<text x="970" y="238" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">Markdown artifact</text>
+<text x="970" y="260" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">regret / safe / protect</text>
+<text x="970" y="282" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">wake / mixed contexts</text>
+<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7a93aa"/></marker></defs><line x1="310" y1="230" x2="360" y2="230" stroke="#7a93aa" stroke-width="3" marker-end="url(#arrowhead)"/>
+<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7a93aa"/></marker></defs><line x1="590" y1="230" x2="640" y2="230" stroke="#7a93aa" stroke-width="3" marker-end="url(#arrowhead)"/>
+<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7a93aa"/></marker></defs><line x1="900" y1="230" x2="950" y2="230" stroke="#7a93aa" stroke-width="3" marker-end="url(#arrowhead)"/>
+<rect x="140" y="380" width="420" height="180" rx="18" fill="#f8fbfd"/>
+<text x="170" y="420" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#15324b" text-anchor="start">5. Memory-on evaluation</text>
+<text x="170" y="452" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#36506a" text-anchor="start">- memory_off: current policy only</text>
+<text x="170" y="478" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#36506a" text-anchor="start">- memory_on: policy + advisory memory</text>
+<text x="170" y="504" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#36506a" text-anchor="start">- compare repeated-risk and</text>
+<text x="170" y="528" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#36506a" text-anchor="start">  feedback-sensitive scenarios</text>
+<rect x="650" y="380" width="500" height="180" rx="18" fill="#eef5fb"/>
+<text x="680" y="420" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#15324b" text-anchor="start">6. Result and product implication</text>
+<text x="680" y="452" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#36506a" text-anchor="start">- fixed benchmark for context</text>
+<text x="680" y="478" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#36506a" text-anchor="start">- personalized benchmark for memory</text>
+<text x="680" y="504" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#36506a" text-anchor="start">- if useful later, memory can become</text>
+<text x="680" y="528" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#36506a" text-anchor="start">  live advisory context in the runtime</text>
+<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7a93aa"/></marker></defs><line x1="1075" y1="290" x2="1075" y2="360" stroke="#7a93aa" stroke-width="3" marker-end="url(#arrowhead)"/>
+<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7a93aa"/></marker></defs><line x1="1075" y1="360" x2="860" y2="360" stroke="#7a93aa" stroke-width="3" marker-end="url(#arrowhead)"/>
+<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7a93aa"/></marker></defs><line x1="650" y1="470" x2="560" y2="470" stroke="#7a93aa" stroke-width="3" marker-end="url(#arrowhead)"/>
+</svg>

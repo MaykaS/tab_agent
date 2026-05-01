@@ -39,6 +39,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     const tab = await chrome.tabs.get(activeInfo.tabId);
     if (!tab?.url || tab.url.startsWith("chrome")) return;
 
+    await clearObservationSuggestion(tab.url);
     await writeVisit(tab.url);
     const { groupName } = await updateBehaviorModels(tab);
     rememberLiveTab(tab, groupName);

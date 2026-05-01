@@ -1,1 +1,5 @@
 NOTES.private.md
+presentation/
+agent_test_set/__pycache__/
+agent_test_set/real_export.json
+agent_test_set/real_export.memory.md

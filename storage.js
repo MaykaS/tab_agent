@@ -15,6 +15,8 @@ const FEEDBACK_LOG_KEY = "feedbackLog";
 const PROTECTED_CONTEXTS_KEY = "protectedContexts";
 const RECENT_ACTIVATIONS_KEY = "recentActivations";
 const AUTO_SLEEP_STATE_KEY = "autoSleepState";
+const AGENT_AUTONOMY_STATE_KEY = "agentAutonomyState";
+const OBSERVATION_STATE_KEY = "observationState";
 const OPENAI_POLICY_SUMMARY_KEY = "openAiPolicySummary";
 const TAB_EVENT_LOG_KEY = "tabEventLog";
 const PRUNE_AFTER_DAYS = 7;
@@ -27,6 +29,21 @@ const TAB_EVENT_LOG_WINDOW_HOURS = 24;
 const TAB_EVENT_CONTEXT_LIMIT = 75;
 const QUICK_REOPEN_MINUTES = 5;
 const SOON_REOPEN_MINUTES = 15;
+const OBSERVATION_RECOMMENDATION_COOLDOWN_MINUTES = 45;
+
+function getHostname(url) {
+  if (!url) return "";
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function getDomainKey(url) {
+  const hostname = getHostname(url);
+  return hostname.replace(/^www\./, "");
+}
 
 function now() {
   return Date.now();
@@ -69,6 +86,17 @@ function getDefaultAgentPolicy() {
     frequentVisits24h: 3,
     protectPinnedTabs: true,
     protectAudibleTabs: true,
+  };
+}
+
+function getDefaultAutonomyState() {
+  return {
+    mode: "observing",
+    unlockedAt: null,
+    lastEvaluatedAt: null,
+    progress: 0,
+    reasons: [],
+    observationMode: true,
   };
 }
 
@@ -140,6 +168,227 @@ function summarizeAdaptivePolicy(basePolicy, feedbackLog = [], actionLog = []) {
   };
 }
 
+function buildAutonomyState(basePolicy, feedbackLog = [], actionLog = [], sessionLog = [], visits = [], recentActivations = []) {
+  const recentFeedback = Array.isArray(feedbackLog) ? feedbackLog.slice(0, 40) : [];
+  const recentActions = Array.isArray(actionLog) ? actionLog.slice(0, 40) : [];
+  const recentVisits = Array.isArray(visits) ? visits.slice(-40) : [];
+
+  const negativeCount = recentFeedback.filter((entry) =>
+    entry.type === "undo" ||
+    String(entry.type).includes("regret") ||
+    entry.type === "bad_feedback"
+  ).length;
+  const positiveCount = recentFeedback.filter((entry) =>
+    entry.type === "good_feedback" ||
+    entry.type === "safe_after_15m"
+  ).length;
+  const protectCount = recentFeedback.filter((entry) => entry.type === "protect").length;
+  const autoSleepCount = recentActions.filter((entry) => entry.type === "auto_sleep").length;
+
+  const enoughHistory =
+    sessionLog.length >= 4 ||
+    recentVisits.length >= 15 ||
+    recentActivations.length >= 8 ||
+    autoSleepCount >= 4;
+  const enoughSignals =
+    recentFeedback.length >= 3 ||
+    positiveCount >= 2 ||
+    protectCount >= 1;
+  const stableTrust = negativeCount <= positiveCount + 1;
+
+  const progressChecks = [
+    enoughHistory,
+    enoughSignals,
+    stableTrust,
+  ];
+  const progress = Number((progressChecks.filter(Boolean).length / progressChecks.length).toFixed(2));
+
+  const reasons = [];
+  if (!enoughHistory) {
+    reasons.push("Learning your patterns before autonomous sleeping turns on.");
+  }
+  if (!enoughSignals) {
+    reasons.push("Needs a little more feedback or repeated safe history.");
+  }
+  if (!stableTrust) {
+    reasons.push("Recent mistakes are keeping the agent in observation mode.");
+  }
+  if (enoughHistory && enoughSignals && stableTrust) {
+    reasons.push("Autonomous sleeping is unlocked for high-confidence, low-risk tabs.");
+  }
+
+  const mode = basePolicy.enabled && enoughHistory && enoughSignals && stableTrust
+    ? "trusted_autonomy"
+    : "observing";
+
+  return {
+    mode,
+    observationMode: mode !== "trusted_autonomy",
+    progress,
+    reasons,
+    lastEvaluatedAt: now(),
+    signals: {
+      negativeCount,
+      positiveCount,
+      protectCount,
+      autoSleepCount,
+      historyEvents: sessionLog.length,
+      recentVisits: recentVisits.length,
+      recentActivations: recentActivations.length,
+    },
+  };
+}
+
+function buildAgentMemorySummary(urlModel = {}, groupModel = {}, protectedContexts = {}, actionLog = [], feedbackLog = []) {
+  const cautionAreas = [];
+  const safeSleepAreas = [];
+  const wakePatterns = [];
+
+  for (const [groupName, summary] of Object.entries(groupModel || {})) {
+    const reasons = [];
+    const score = (summary.regretCount || 0) + (summary.protectionCount || 0);
+    if (summary.regretCount > 0) reasons.push(`${summary.regretCount} regret signal${summary.regretCount === 1 ? "" : "s"}`);
+    if (summary.protectionCount > 0) reasons.push(`${summary.protectionCount} protect signal${summary.protectionCount === 1 ? "" : "s"}`);
+    if (protectedContexts.groups?.[groupName]) reasons.push("explicitly protected");
+    if (reasons.length) {
+      cautionAreas.push({
+        type: "group",
+        label: groupName,
+        score,
+        reasons,
+      });
+    } else if ((summary.safeSleepCount || 0) >= 2) {
+      safeSleepAreas.push({
+        type: "group",
+        label: groupName,
+        score: summary.safeSleepCount,
+        reasons: [`${summary.safeSleepCount} safe sleep outcome${summary.safeSleepCount === 1 ? "" : "s"}`],
+      });
+    }
+  }
+
+  for (const [url, summary] of Object.entries(urlModel || {})) {
+    const reasons = [];
+    const score = (summary.regretCount || 0) + (summary.protectionCount || 0);
+    if (summary.regretCount > 0) reasons.push(`${summary.regretCount} regret signal${summary.regretCount === 1 ? "" : "s"}`);
+    if (summary.protectionCount > 0) reasons.push(`${summary.protectionCount} protect signal${summary.protectionCount === 1 ? "" : "s"}`);
+    if (protectedContexts.urls?.[url]) reasons.push("explicitly protected");
+    if (reasons.length) {
+      cautionAreas.push({
+        type: "url",
+        label: summary.title || url,
+        key: url,
+        domain: getDomainKey(url),
+        score,
+        reasons,
+      });
+    } else if ((summary.safeSleepCount || 0) >= 2 && (summary.regretCount || 0) === 0) {
+      safeSleepAreas.push({
+        type: "url",
+        label: summary.title || url,
+        key: url,
+        domain: getDomainKey(url),
+        score: summary.safeSleepCount,
+        reasons: [`${summary.safeSleepCount} safe sleep outcome${summary.safeSleepCount === 1 ? "" : "s"}`],
+      });
+    }
+  }
+
+  const wakeCounts = {};
+  for (const action of actionLog || []) {
+    if (action.type !== "auto_wake" || !action.target?.groupName) continue;
+    const key = action.target.groupName;
+    if (!wakeCounts[key]) wakeCounts[key] = { label: key, total: 0, positive: 0 };
+    wakeCounts[key].total += 1;
+    if (action.outcome?.status === "good_feedback") wakeCounts[key].positive += 1;
+  }
+  for (const entry of Object.values(wakeCounts)) {
+    if (entry.total > 0) {
+      wakePatterns.push({
+        label: entry.label,
+        positiveRate: Number((entry.positive / entry.total).toFixed(2)),
+        total: entry.total,
+      });
+    }
+  }
+
+  cautionAreas.sort((a, b) => (b.score || 0) - (a.score || 0));
+  safeSleepAreas.sort((a, b) => (b.score || 0) - (a.score || 0));
+  wakePatterns.sort((a, b) => (b.positiveRate || 0) - (a.positiveRate || 0));
+
+  return {
+    memoryCondition: "memory_on_caution_first",
+    cautionAreas: cautionAreas.slice(0, 6),
+    safeSleepAreas: safeSleepAreas.slice(0, 6),
+    wakePatterns: wakePatterns.slice(0, 4),
+    summary: {
+      cautionAreaCount: cautionAreas.length,
+      safeSleepAreaCount: safeSleepAreas.length,
+      wakePatternCount: wakePatterns.length,
+      explicitProtectionCount:
+        Object.keys(protectedContexts.urls || {}).length +
+        Object.keys(protectedContexts.groups || {}).length,
+      feedbackCount: (feedbackLog || []).length,
+    },
+  };
+}
+
+async function getAutonomyState() {
+  const data = await chrome.storage.local.get([
+    AGENT_POLICY_KEY,
+    AGENT_ACTION_LOG_KEY,
+    FEEDBACK_LOG_KEY,
+    SESSION_LOG_KEY,
+    STORAGE_KEY,
+    RECENT_ACTIVATIONS_KEY,
+    AGENT_AUTONOMY_STATE_KEY,
+  ]);
+  const basePolicy = {
+    ...getDefaultAgentPolicy(),
+    ...(data[AGENT_POLICY_KEY] || {}),
+  };
+  const computed = buildAutonomyState(
+    basePolicy,
+    data[FEEDBACK_LOG_KEY] || [],
+    data[AGENT_ACTION_LOG_KEY] || [],
+    data[SESSION_LOG_KEY] || [],
+    data[STORAGE_KEY] || [],
+    data[RECENT_ACTIVATIONS_KEY] || []
+  );
+  const previous = data[AGENT_AUTONOMY_STATE_KEY] || {};
+  const next = {
+    ...getDefaultAutonomyState(),
+    ...previous,
+    ...computed,
+    unlockedAt:
+      computed.mode === "trusted_autonomy"
+        ? previous.unlockedAt || now()
+        : previous.unlockedAt || null,
+  };
+  await chrome.storage.local.set({ [AGENT_AUTONOMY_STATE_KEY]: next });
+  return next;
+}
+
+async function getPolicyMemorySnapshot() {
+  const data = await chrome.storage.local.get([
+    URL_MODEL_KEY,
+    GROUP_MODEL_KEY,
+    PROTECTED_CONTEXTS_KEY,
+    AGENT_ACTION_LOG_KEY,
+    FEEDBACK_LOG_KEY,
+  ]);
+  return buildAgentMemorySummary(
+    data[URL_MODEL_KEY] || {},
+    data[GROUP_MODEL_KEY] || {},
+    {
+      ...getProtectedDefaults(),
+      ...(data[PROTECTED_CONTEXTS_KEY] || {}),
+    },
+    data[AGENT_ACTION_LOG_KEY] || [],
+    data[FEEDBACK_LOG_KEY] || []
+  );
+}
+
 async function getEffectiveAgentPolicy() {
   const [basePolicy, actionLog, feedbackLog] = await Promise.all([
     getAgentPolicy(),
@@ -158,6 +407,33 @@ async function saveAgentPolicy(policy) {
       updatedAt: now(),
     },
   });
+}
+
+async function getObservationState() {
+  const data = await chrome.storage.local.get(OBSERVATION_STATE_KEY);
+  return data[OBSERVATION_STATE_KEY] || {};
+}
+
+async function rememberObservationSuggestion(url) {
+  if (!url) return;
+  const state = await getObservationState();
+  state[normalizeUrl(url)] = { observedAt: now() };
+  await chrome.storage.local.set({ [OBSERVATION_STATE_KEY]: state });
+}
+
+async function shouldRecordObservationSuggestion(url, cooldownMinutes = OBSERVATION_RECOMMENDATION_COOLDOWN_MINUTES) {
+  if (!url) return false;
+  const state = await getObservationState();
+  const entry = state[normalizeUrl(url)];
+  if (!entry?.observedAt) return true;
+  return (now() - entry.observedAt) / 60000 >= cooldownMinutes;
+}
+
+async function clearObservationSuggestion(url) {
+  if (!url) return;
+  const state = await getObservationState();
+  delete state[normalizeUrl(url)];
+  await chrome.storage.local.set({ [OBSERVATION_STATE_KEY]: state });
 }
 
 function getProtectedDefaults() {
@@ -301,13 +577,17 @@ function buildTrainingExamples(actionLog = [], feedbackLog = [], tabEventLog = [
       const actionTimestamp = action.createdAt || now();
       const targetUrl = action.target?.urls?.[0] || null;
       const normalizedUrl = normalizeUrl(targetUrl);
+      const targetDomain = getDomainKey(targetUrl);
       const groupName = action.target?.groupName || null;
       const nearbyEvents = recentEventsAsc
         .filter((entry) => {
+          const ageMinutes = (actionTimestamp - entry.timestamp) / 60000;
+          if (ageMinutes < 0 || ageMinutes > 180) return false;
           const sameTarget =
-            (targetUrl && entry.url === targetUrl) ||
-            (groupName && entry.groupName === groupName);
-          return sameTarget && entry.timestamp <= actionTimestamp;
+            (normalizedUrl && normalizeUrl(entry.url) === normalizedUrl) ||
+            (groupName && entry.groupName === groupName) ||
+            (targetDomain && getDomainKey(entry.url) === targetDomain);
+          return sameTarget;
         })
         .slice(-12);
       const outcomeStatus = action.outcome?.status || "pending";
@@ -337,6 +617,7 @@ function buildTrainingExamples(actionLog = [], feedbackLog = [], tabEventLog = [
             eventType: entry.eventType,
             url: entry.url,
             groupName: entry.groupName || null,
+            domain: getDomainKey(entry.url),
             source: entry.source || "user",
           })),
         },
@@ -350,6 +631,36 @@ function buildTrainingExamples(actionLog = [], feedbackLog = [], tabEventLog = [
         })),
       };
     });
+}
+
+function buildEvaluationSummary(actionLog = [], feedbackLog = [], protectedContexts = {}, autonomyState = null, agentMemorySummary = null) {
+  const autoSleepActions = (actionLog || []).filter((action) => action.type === "auto_sleep");
+  const autoWakeActions = (actionLog || []).filter((action) => action.type === "auto_wake");
+
+  const protectedViolationCount = autoSleepActions.filter((action) => {
+    const url = action.target?.urls?.[0] || null;
+    const groupName = action.target?.groupName || null;
+    return Boolean(
+      (url && protectedContexts.urls?.[normalizeUrl(url)]) ||
+      (groupName && protectedContexts.groups?.[groupName])
+    );
+  }).length;
+
+  const wakeSuccessCount = autoWakeActions.filter((action) => action.outcome?.status === "good_feedback").length;
+  const wakeExecutedCount = autoWakeActions.length;
+
+  return {
+    memoryCondition: agentMemorySummary?.memoryCondition || "memory_on_caution_first",
+    autonomyMode: autonomyState?.mode || "observing",
+    protectedViolationCount,
+    wakeSuccessCount,
+    wakeExecutedCount,
+    feedbackSpecificErrors: {
+      undoCount: feedbackLog.filter((entry) => entry.type === "undo").length,
+      regretCount: feedbackLog.filter((entry) => String(entry.type).includes("regret")).length,
+      explicitBadCount: feedbackLog.filter((entry) => entry.type === "bad_feedback").length,
+    },
+  };
 }
 
 function pruneOldVisits(visits) {
@@ -989,6 +1300,7 @@ async function buildStudySnapshot(data) {
       memoryMetricsAreEstimated: true,
       groups: [],
       autonomousSummary: {
+        observationCount: agentActions.filter((action) => action.type === "observe_sleep").length,
         autoSleepCount: agentActions.filter((action) => action.type === "auto_sleep").length,
         autoWakeCount: agentActions.filter((action) => action.type === "auto_wake").length,
         undoCount: feedbackLog.filter((entry) => entry.type === "undo").length,
@@ -1081,6 +1393,7 @@ async function buildStudySnapshot(data) {
       tabTitlesPreview: group.tabTitlesPreview,
     })),
     autonomousSummary: {
+      observationCount: agentActions.filter((action) => action.type === "observe_sleep").length,
       autoSleepCount: agentActions.filter((action) => action.type === "auto_sleep").length,
       autoWakeCount: agentActions.filter((action) => action.type === "auto_wake").length,
       undoCount: feedbackLog.filter((entry) => entry.type === "undo").length,
@@ -1097,6 +1410,8 @@ async function getAllDataForExport() {
   const data = await chrome.storage.local.get(null);
   const studySnapshot = await buildStudySnapshot(data);
   const baseAgentPolicy = await getAgentPolicy();
+  const autonomyState = await getAutonomyState();
+  const agentMemorySummary = await getPolicyMemorySnapshot();
   const adaptivePolicySummary = summarizeAdaptivePolicy(
     baseAgentPolicy,
     data[FEEDBACK_LOG_KEY] || [],
@@ -1110,6 +1425,14 @@ async function getAllDataForExport() {
     data[URL_MODEL_KEY] || {},
     data[GROUP_MODEL_KEY] || {},
     effectiveAgentPolicy
+  );
+  const protectedContexts = await getProtectedContexts();
+  const evaluationSummary = buildEvaluationSummary(
+    data[AGENT_ACTION_LOG_KEY] || [],
+    data[FEEDBACK_LOG_KEY] || [],
+    protectedContexts,
+    autonomyState,
+    agentMemorySummary
   );
 
   return {
@@ -1131,20 +1454,23 @@ async function getAllDataForExport() {
     memoryMetricsAreEstimated: studySnapshot.memoryMetricsAreEstimated,
     studyResponses: await getStudyResponses(),
     groups: studySnapshot.groups,
+    autonomyState,
     agentPolicy: effectiveAgentPolicy,
     baseAgentPolicy,
     adaptivePolicySummary,
     actionLog: data[AGENT_ACTION_LOG_KEY] || [],
     feedbackLog: data[FEEDBACK_LOG_KEY] || [],
-    protectedContexts: await getProtectedContexts(),
+    protectedContexts,
     recentActivations: await getRecentActivations(),
     urlModel: data[URL_MODEL_KEY] || {},
     groupModel: data[GROUP_MODEL_KEY] || {},
     tabEventLog: data[TAB_EVENT_LOG_KEY] || [],
     recentTabEvents: await getRecentTabEventsForContext(),
     trainingExamples,
+    agentMemorySummary,
     autonomousSummary: studySnapshot.autonomousSummary,
     baselineComparison: studySnapshot.baselineComparison,
+    evaluationSummary,
     openAiPolicySummary: await getOpenAiPolicySummary(),
     openTabsSnapshot: studySnapshot.openTabsSnapshot || [],
   };

@@ -1,4 +1,4 @@
-// popup.js — the agent brain
+// popup.js - popup surface for grouping, sleeping, waking, and trust status
 
 const statusEl = document.getElementById("status");
 const errorEl = document.getElementById("error");
@@ -8,39 +8,39 @@ const statsBtn = document.getElementById("stats-btn");
 
 const STORAGE_GROUPS_KEY = "cachedGroups";
 const STORAGE_ASLEEP_KEY = "asleepGroups";
-const STORAGE_SAVED_KEY  = "memorySaved";
-
-// ─── Entry point ─────────────────────────────────────────────────────────────
+const STORAGE_SAVED_KEY = "memorySaved";
+const MODE_NOTICE_ID = "mode-notice";
 
 regroupBtn.addEventListener("click", () => runAgent(true));
 statsBtn.addEventListener("click", () => {
   chrome.tabs.create({ url: chrome.runtime.getURL("stats.html") });
 });
+
 runAgent(false);
-
-// ─── Main agent loop ─────────────────────────────────────────────────────────
-
-// forceRegroup = true  → always call Gemini Nano (Regroup button)
-// forceRegroup = false → load from cache if available, only call AI if no cache
 
 async function runAgent(forceRegroup) {
   hideError();
+  hideModeNotice();
   groupsEl.style.display = "none";
   groupsEl.innerHTML = "";
 
   try {
-    const frequentUrls = await getFrequentUrls(3, 24);
+    const [frequentUrls, autonomyState] = await Promise.all([
+      getFrequentUrls(3, 24),
+      typeof getAutonomyState === "function"
+        ? getAutonomyState()
+        : Promise.resolve({ mode: "observing", observationMode: true }),
+    ]);
 
     if (!forceRegroup) {
-      // Try loading cached groups first
       const cached = await loadCachedState();
       if (cached) {
+        showModeNotice(autonomyState, cached.groupMode || "cached");
         renderGroups(cached.groups, cached.tabMap, frequentUrls, cached.asleepGroups);
         return;
       }
     }
 
-    // No cache or force regroup — call Gemini Nano
     showStatus("Grouping your tabs...");
 
     const tabs = await observeTabs();
@@ -49,40 +49,40 @@ async function runAgent(forceRegroup) {
       return;
     }
 
-    const groups = await decideGroups(tabs);
+    const groupingResult = await decideGroups(tabs);
+    const groups = groupingResult.groups;
     if (!groups || groups.length === 0) {
       showError("Couldn't generate groups. Try reopening the popup.");
       return;
     }
 
-    // Build tabMap and save to storage
     const tabMap = {};
-    for (const tab of tabs) tabMap[tab.id] = tab;
+    for (const tab of tabs) {
+      tabMap[tab.id] = tab;
+    }
 
-    await saveCachedState(groups, tabMap, {});
-    // Log grouping event
+    await saveCachedState(groups, tabMap, {}, groupingResult.mode);
     await logEvent("grouped", {
       tabCount: tabs.length,
       groupCount: groups.length,
       frequentTabCount: frequentUrls.size,
-      groupNames: groups.map(g => g.name),
-      forced: forceRegroup
+      groupNames: groups.map((group) => group.name),
+      forced: forceRegroup,
+      mode: groupingResult.mode,
     });
 
+    showModeNotice(autonomyState, groupingResult.mode);
     renderGroups(groups, tabMap, frequentUrls, {});
-
   } catch (err) {
     console.error("Tab Agent error:", err);
     showError("Something went wrong: " + err.message);
   }
 }
 
-// ─── Cache helpers ────────────────────────────────────────────────────────────
-
-async function saveCachedState(groups, tabMap, asleepGroups) {
+async function saveCachedState(groups, tabMap, asleepGroups, groupMode = "ai_grouping") {
   await chrome.storage.local.set({
-    [STORAGE_GROUPS_KEY]: { groups, tabMap },
-    [STORAGE_ASLEEP_KEY]: asleepGroups
+    [STORAGE_GROUPS_KEY]: { groups, tabMap, groupMode },
+    [STORAGE_ASLEEP_KEY]: asleepGroups,
   });
 }
 
@@ -92,7 +92,8 @@ async function loadCachedState() {
   return {
     groups: data[STORAGE_GROUPS_KEY].groups,
     tabMap: data[STORAGE_GROUPS_KEY].tabMap,
-    asleepGroups: data[STORAGE_ASLEEP_KEY] || {}
+    groupMode: data[STORAGE_GROUPS_KEY].groupMode || "cached",
+    asleepGroups: data[STORAGE_ASLEEP_KEY] || {},
   };
 }
 
@@ -100,41 +101,57 @@ async function updateAsleepState(asleepGroups) {
   await chrome.storage.local.set({ [STORAGE_ASLEEP_KEY]: asleepGroups });
 }
 
-// ─── 1. Observe ──────────────────────────────────────────────────────────────
-
 async function observeTabs() {
   const rawTabs = await chrome.tabs.query({});
-  return rawTabs.map(tab => ({
-    id: tab.id,
-    title: tab.title || "Untitled",
-    url: tab.url || "",
-  })).filter(tab =>
-    !tab.url.startsWith("chrome://") &&
-    !tab.url.startsWith("chrome-extension://") &&
-    !tab.url.startsWith("about:")
-  );
+  return rawTabs
+    .map((tab) => ({
+      id: tab.id,
+      title: tab.title || "Untitled",
+      url: tab.url || "",
+    }))
+    .filter(
+      (tab) =>
+        !tab.url.startsWith("chrome://") &&
+        !tab.url.startsWith("chrome-extension://") &&
+        !tab.url.startsWith("about:")
+    );
 }
 
-// ─── 2. Decide ───────────────────────────────────────────────────────────────
-
 async function decideGroups(tabs) {
-  const availability = await LanguageModel.availability();
+  const aiResult = await tryAiGrouping(tabs);
+  if (aiResult) return aiResult;
+  return {
+    groups: buildFallbackGroups(tabs),
+    mode: "fallback_grouping",
+  };
+}
+
+async function tryAiGrouping(tabs) {
+  if (typeof LanguageModel === "undefined" || typeof LanguageModel.availability !== "function") {
+    return null;
+  }
+
+  let availability = "unavailable";
+  try {
+    availability = await LanguageModel.availability();
+  } catch {
+    return null;
+  }
+
   if (availability !== "available") {
-    throw new Error(
-      `Gemini Nano is not available (status: ${availability}). ` +
-      `Open DevTools and run: await LanguageModel.create()`
-    );
+    return null;
   }
 
   const session = await LanguageModel.create({
-    systemPrompt: "You are a browser tab organizer. You group tabs by topic. You always respond with valid JSON only — no markdown, no explanation, no extra text.",
+    systemPrompt:
+      "You are a browser tab organizer. You group tabs by topic. You always respond with valid JSON only, with no markdown, no explanation, and no extra text.",
     expectedInputLanguages: ["en"],
-    outputLanguage: "en"
+    outputLanguage: "en",
   });
 
-  const tabList = tabs.map(t => ({ id: t.id, title: t.title, url: t.url }));
-
-  const prompt = `Group these browser tabs by topic.
+  try {
+    const tabList = tabs.map((tab) => ({ id: tab.id, title: tab.title, url: tab.url }));
+    const prompt = `Group these browser tabs by topic.
 Return ONLY a JSON object in exactly this format, with no extra text:
 {
   "groups": [
@@ -151,10 +168,50 @@ Rules:
 Tabs:
 ${JSON.stringify(tabList, null, 2)}`;
 
-  const response = await session.prompt(prompt);
-  session.destroy();
+    const response = await session.prompt(prompt);
+    return {
+      groups: parseGroupsFromResponse(response, tabs),
+      mode: "ai_grouping",
+    };
+  } finally {
+    session.destroy();
+  }
+}
 
-  return parseGroupsFromResponse(response, tabs);
+function buildFallbackGroups(tabs) {
+  const grouped = new Map();
+
+  for (const tab of tabs) {
+    const groupName = inferFallbackGroupName(tab);
+    if (!grouped.has(groupName)) grouped.set(groupName, []);
+    grouped.get(groupName).push(tab.id);
+  }
+
+  return Array.from(grouped.entries()).map(([name, tabIds]) => ({
+    name,
+    tabIds,
+  }));
+}
+
+function inferFallbackGroupName(tab) {
+  const title = (tab.title || "").trim();
+  const url = tab.url || "";
+  const hostname = (() => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  })();
+
+  if (/mail|inbox|outlook/i.test(title) || /mail|outlook/.test(hostname)) return "Comms";
+  if (/calendar|meeting|zoom|meet/i.test(title) || /calendar|meet/.test(hostname)) return "Schedule";
+  if (/github|vercel|localhost|stack overflow|terminal|tab agent/i.test(title) || /github|vercel|localhost|127\.0\.0\.1/.test(hostname)) return "Build";
+  if (/notion|docs|drive|slides|sheets/i.test(title) || /notion|docs\.google|drive\.google/.test(hostname)) return "Workspace";
+  if (/linkedin|job|career|internship|resume/i.test(title) || /linkedin|greenhouse|lever|workdayjobs|ashbyhq/.test(hostname)) return "Career";
+  if (/news|article|read|blog|substack/i.test(title)) return "Reading";
+  if (hostname) return hostname.split(".")[0].replace(/^\w/, (value) => value.toUpperCase());
+  return "Other";
 }
 
 function parseGroupsFromResponse(response, tabs) {
@@ -163,7 +220,7 @@ function parseGroupsFromResponse(response, tabs) {
   let parsed;
   try {
     parsed = JSON.parse(cleaned);
-  } catch (e) {
+  } catch {
     throw new Error("AI returned invalid JSON. Try regrouping.");
   }
 
@@ -171,46 +228,46 @@ function parseGroupsFromResponse(response, tabs) {
     throw new Error("AI response had unexpected structure. Try regrouping.");
   }
 
-  const validIds = new Set(tabs.map(t => t.id));
-  const groups = parsed.groups.map(group => ({
-    name: group.name || "Unnamed group",
-    tabIds: (group.tabIds || []).filter(id => validIds.has(id))
-  })).filter(group => group.tabIds.length > 0);
+  const validIds = new Set(tabs.map((tab) => tab.id));
+  const groups = parsed.groups
+    .map((group) => ({
+      name: group.name || "Unnamed group",
+      tabIds: (group.tabIds || []).filter((id) => validIds.has(id)),
+    }))
+    .filter((group) => group.tabIds.length > 0);
 
-  const assignedIds = new Set(groups.flatMap(group => group.tabIds));
-  const unassignedIds = tabs
-    .map(tab => tab.id)
-    .filter(id => !assignedIds.has(id));
+  const assignedIds = new Set(groups.flatMap((group) => group.tabIds));
+  const unassignedIds = tabs.map((tab) => tab.id).filter((id) => !assignedIds.has(id));
 
   if (unassignedIds.length > 0) {
     groups.push({
       name: "Other",
-      tabIds: unassignedIds
+      tabIds: unassignedIds,
     });
   }
 
-  if (groups.length === 0) {
-    return [{
-      name: "Other",
-      tabIds: tabs.map(tab => tab.id)
-    }];
-  }
-
-  return groups;
+  return groups.length
+    ? groups
+    : [
+        {
+          name: "Other",
+          tabIds: tabs.map((tab) => tab.id),
+        },
+      ];
 }
 
-// ─── 3. Render ───────────────────────────────────────────────────────────────
-
 function renderGroups(groups, tabMap, frequentUrls, asleepGroupsInit) {
-  // asleepGroupsInit is the persisted asleep state from storage
-  // We keep a live copy in memory for this session
   const asleepGroups = { ...asleepGroupsInit };
 
   groups.forEach((group, groupIndex) => {
     const isAsleep = !!asleepGroups[groupIndex];
     const groupEl = createGroupElement(
-      group, groupIndex, tabMap, frequentUrls,
-      isAsleep, asleepGroups[groupIndex] || [],
+      group,
+      groupIndex,
+      tabMap,
+      frequentUrls,
+      isAsleep,
+      asleepGroups[groupIndex] || [],
       asleepGroups
     );
     groupsEl.appendChild(groupEl);
@@ -225,7 +282,6 @@ function createGroupElement(group, groupIndex, tabMap, frequentUrls, isAsleep, a
   groupEl.className = "group" + (isAsleep ? " group-asleep" : "");
   groupEl.dataset.groupIndex = groupIndex;
 
-  // ── Header ──
   const header = document.createElement("div");
   header.className = "group-header";
 
@@ -249,18 +305,21 @@ function createGroupElement(group, groupIndex, tabMap, frequentUrls, isAsleep, a
 
   const sleepBtn = document.createElement("button");
   sleepBtn.className = "btn-sleep";
+  sleepBtn.type = "button";
   sleepBtn.textContent = "Sleep";
   sleepBtn.title = "Suspend tabs in this group to free memory";
   sleepBtn.style.display = isAsleep ? "none" : "inline-block";
 
   const wakeBtn = document.createElement("button");
   wakeBtn.className = "btn-wake";
+  wakeBtn.type = "button";
   wakeBtn.textContent = "Wake";
   wakeBtn.title = "Reload all tabs in this group";
   wakeBtn.style.display = isAsleep ? "inline-block" : "none";
 
   const closeBtn = document.createElement("button");
   closeBtn.className = "btn-close";
+  closeBtn.type = "button";
   closeBtn.textContent = "Close";
   closeBtn.title = "Close all tabs in this group";
 
@@ -270,7 +329,6 @@ function createGroupElement(group, groupIndex, tabMap, frequentUrls, isAsleep, a
   header.appendChild(nameWrap);
   header.appendChild(actions);
 
-  // ── Tab list ──
   const list = document.createElement("ul");
   list.className = "tab-list";
 
@@ -295,7 +353,7 @@ function createGroupElement(group, groupIndex, tabMap, frequentUrls, isAsleep, a
       const badge = document.createElement("span");
       badge.className = "badge-frequent";
       badge.textContent = "frequent";
-      badge.title = "This tab is visited often and won't be slept automatically";
+      badge.title = "This tab is visited often and will stay more protected.";
       item.appendChild(badge);
     }
 
@@ -305,13 +363,12 @@ function createGroupElement(group, groupIndex, tabMap, frequentUrls, isAsleep, a
   groupEl.appendChild(header);
   groupEl.appendChild(list);
 
-  // ── Button handlers ──
   sleepBtn.addEventListener("click", async () => {
     await sleepGroup(group, tabMap, frequentUrls, groupIndex, groupEl, sleepBtn, wakeBtn, statusBadge, list, asleepGroups);
   });
 
   wakeBtn.addEventListener("click", async () => {
-    await wakeGroup(groupIndex, groupEl, sleepBtn, wakeBtn, statusBadge, list, asleepGroups);
+    await wakeGroup(group, groupIndex, tabMap, groupEl, sleepBtn, wakeBtn, statusBadge, list, asleepGroups);
   });
 
   closeBtn.addEventListener("click", async () => {
@@ -321,42 +378,35 @@ function createGroupElement(group, groupIndex, tabMap, frequentUrls, isAsleep, a
   return groupEl;
 }
 
-// ─── Actions ─────────────────────────────────────────────────────────────────
-
 async function sleepGroup(group, tabMap, frequentUrls, groupIndex, groupEl, sleepBtn, wakeBtn, statusBadge, list, asleepGroups) {
-  const frequentInGroup = group.tabIds.filter(id => tabMap[id] && frequentUrls.has(normalizeUrl(tabMap[id].url)));
-  const nonFrequent = group.tabIds.filter(id => tabMap[id] && !frequentUrls.has(normalizeUrl(tabMap[id].url)));
+  const frequentInGroup = group.tabIds.filter((id) => tabMap[id] && frequentUrls.has(normalizeUrl(tabMap[id].url)));
+  const nonFrequent = group.tabIds.filter((id) => tabMap[id] && !frequentUrls.has(normalizeUrl(tabMap[id].url)));
 
   let toSleep = nonFrequent;
 
-  // If there are frequent tabs, ask the user what to do
   if (frequentInGroup.length > 0) {
     if (nonFrequent.length === 0) {
-      // All tabs are frequent — must confirm to sleep any of them
       const word = frequentInGroup.length === 1 ? "tab" : "tabs";
-      const confirmed = confirm(
-        `All ${frequentInGroup.length} ${word} in this group are frequently visited. Sleep them anyway?`
-      );
+      const confirmed = confirm(`All ${frequentInGroup.length} ${word} in this group are frequently visited. Sleep them anyway?`);
       if (!confirmed) return;
       toSleep = frequentInGroup;
     } else {
-      // Mixed group — ask if they want to include frequent tabs too
       const word = frequentInGroup.length === 1 ? "tab" : "tabs";
-      const confirmed = confirm(
-        `This group has ${frequentInGroup.length} frequently visited ${word}. Sleep them too?`
-      );
+      const confirmed = confirm(`This group has ${frequentInGroup.length} frequently visited ${word}. Sleep them too?`);
       if (confirmed) {
-        toSleep = group.tabIds.filter(id => tabMap[id]);
+        toSleep = group.tabIds.filter((id) => tabMap[id]);
       }
-      // if not confirmed, toSleep stays as nonFrequent only
     }
   }
 
   if (toSleep.length === 0) return;
 
   for (const tabId of toSleep) {
-    try { await chrome.tabs.discard(tabId); }
-    catch (e) { console.warn("Could not discard tab", tabId, e); }
+    try {
+      await chrome.tabs.discard(tabId);
+    } catch (error) {
+      console.warn("Could not discard tab", tabId, error);
+    }
   }
 
   for (const tabId of toSleep) {
@@ -372,27 +422,24 @@ async function sleepGroup(group, tabMap, frequentUrls, groupIndex, groupEl, slee
     });
   }
 
-  // Persist asleep state
   asleepGroups[groupIndex] = toSleep;
   await updateAsleepState(asleepGroups);
 
-  // Track estimated memory saved (~50MB per discarded tab)
   try {
     const savedMB = toSleep.length * 50;
     const data = await chrome.storage.local.get(STORAGE_SAVED_KEY);
     const prev = data[STORAGE_SAVED_KEY] || 0;
     await chrome.storage.local.set({ [STORAGE_SAVED_KEY]: prev + savedMB });
-
-    // Log sleep event
     await logEvent("slept", {
       tabCount: toSleep.length,
       frequentTabCount: group.tabIds.length - toSleep.length,
       groupName: group.name,
-      estimatedMBSaved: savedMB
+      estimatedMBSaved: savedMB,
     });
-  } catch(e) { /* silently skip */ }
+  } catch {
+    // Best effort only.
+  }
 
-  // Update UI
   groupEl.classList.add("group-asleep");
   sleepBtn.style.display = "none";
   wakeBtn.style.display = "inline-block";
@@ -404,82 +451,59 @@ async function sleepGroup(group, tabMap, frequentUrls, groupIndex, groupEl, slee
   }
 }
 
-async function wakeGroup(groupIndex, groupEl, sleepBtn, wakeBtn, statusBadge, list, asleepGroups) {
+async function wakeGroup(group, groupIndex, tabMap, groupEl, sleepBtn, wakeBtn, statusBadge, list, asleepGroups) {
   const tabIds = asleepGroups[groupIndex] || [];
-  const data = await chrome.storage.local.get(STORAGE_GROUPS_KEY);
-  const cached = data[STORAGE_GROUPS_KEY];
 
   for (const tabId of tabIds) {
-    try { await chrome.tabs.reload(tabId); }
-    catch (e) { console.warn("Could not reload tab", tabId, e); }
-  }
-
-  if (cached?.tabMap) {
-    for (const tabId of tabIds) {
-      const url = cached.tabMap[tabId]?.url;
-      if (!url) continue;
-      await appendTabEvent({
-        eventType: "wake",
-        tabId,
-        url,
-        title: cached.tabMap[tabId]?.title || "Untitled",
-        groupName: cached.tabMap[tabId]?.groupName || null,
-        source: "user",
-      });
+    try {
+      await chrome.tabs.reload(tabId);
+    } catch (error) {
+      console.warn("Could not reload tab", tabId, error);
     }
   }
 
-  // Clear persisted asleep state
+  for (const tabId of tabIds) {
+    const tab = tabMap[tabId];
+    if (!tab?.url) continue;
+    await appendTabEvent({
+      eventType: "wake",
+      tabId,
+      url: tab.url,
+      title: tab.title || "Untitled",
+      groupName: group.name,
+      source: "user",
+    });
+    await markAutoSleepOutcome(tab.url, "manual_wake_after_sleep");
+  }
+
   delete asleepGroups[groupIndex];
   await updateAsleepState(asleepGroups);
+  await logEvent("woken", { tabCount: tabIds.length, groupName: group.name, groupIndex });
 
-  // Log wake event
-  await logEvent("woken", { tabCount: tabIds.length, groupIndex });
-
-  if (cached?.tabMap) {
-    for (const tabId of tabIds) {
-      const url = cached.tabMap[tabId]?.url;
-      if (url) {
-        await markAutoSleepOutcome(url, "manual_wake_after_sleep");
-      }
-    }
-  }
-
-  // Restore UI
   groupEl.classList.remove("group-asleep");
   sleepBtn.style.display = "inline-block";
   wakeBtn.style.display = "none";
   statusBadge.style.display = "none";
-  list.querySelectorAll(".tab-asleep").forEach(el => el.classList.remove("tab-asleep"));
+  list.querySelectorAll(".tab-asleep").forEach((element) => element.classList.remove("tab-asleep"));
 }
 
 async function closeGroup(group, tabMap, frequentUrls, groupEl) {
-  // Get current real tabs from Chrome — cached tabIds may be stale
   const realTabs = await chrome.tabs.query({});
-
-  // Build URL → real tab ID map
   const urlToRealId = {};
-  for (const t of realTabs) {
-    if (t.url) urlToRealId[normalizeUrl(t.url)] = t.id;
+  for (const tab of realTabs) {
+    if (tab.url) urlToRealId[normalizeUrl(tab.url)] = tab.id;
   }
 
-  // Map group's cached tabs to real current tab IDs via URL matching
-  const groupUrls = group.tabIds
-    .map(id => tabMap[id]?.url)
-    .filter(Boolean);
-
-  const frequentUrls_set = frequentUrls;
-  const frequentGroupUrls = groupUrls.filter(url => frequentUrls_set.has(normalizeUrl(url)));
-  const nonFrequentUrls   = groupUrls.filter(url => !frequentUrls_set.has(normalizeUrl(url)));
+  const groupUrls = group.tabIds.map((id) => tabMap[id]?.url).filter(Boolean);
+  const frequentGroupUrls = groupUrls.filter((url) => frequentUrls.has(normalizeUrl(url)));
+  const nonFrequentUrls = groupUrls.filter((url) => !frequentUrls.has(normalizeUrl(url)));
 
   let urlsToClose = nonFrequentUrls;
   let closeAll = false;
 
   if (frequentGroupUrls.length > 0) {
     const word = frequentGroupUrls.length === 1 ? "tab" : "tabs";
-    const confirmed = confirm(
-      `This group has ${frequentGroupUrls.length} frequently visited ${word}. Close them too?`
-    );
+    const confirmed = confirm(`This group has ${frequentGroupUrls.length} frequently visited ${word}. Close them too?`);
     if (confirmed) {
       urlsToClose = groupUrls;
       closeAll = true;
@@ -490,42 +514,38 @@ async function closeGroup(group, tabMap, frequentUrls, groupEl) {
 
   if (urlsToClose.length === 0) return;
 
-  // Close by real current tab IDs (matched by URL)
-  const idsToClose = urlsToClose.map(url => urlToRealId[normalizeUrl(url)]).filter(Boolean);
-  console.log("Tab Agent: closing tab IDs", idsToClose, "for URLs", urlsToClose);
-
+  const idsToClose = urlsToClose.map((url) => urlToRealId[normalizeUrl(url)]).filter(Boolean);
   if (idsToClose.length > 0) {
     try {
       await chrome.tabs.remove(idsToClose);
-    } catch (e) {
-      // Fallback: close one by one
+    } catch {
       for (const tabId of idsToClose) {
-        try { await chrome.tabs.remove(tabId); } catch (e2) { /* already gone */ }
+        try {
+          await chrome.tabs.remove(tabId);
+        } catch {
+          // Ignore stale tab failures.
+        }
       }
     }
 
-    // Log close event
     await logEvent("closed", {
       tabCount: idsToClose.length,
       groupName: group.name,
-      includedFrequent: closeAll && frequentGroupUrls.length > 0
+      includedFrequent: closeAll && frequentGroupUrls.length > 0,
     });
   }
 
   if (closeAll) {
     groupEl.remove();
-    // Remove group from cache so it doesn't reappear on reopen
     await removeGroupFromCache(group);
   } else {
-    // Keep group, remove only the closed tab rows
     for (const url of urlsToClose) {
-      const id = group.tabIds.find(id => tabMap[id]?.url === url);
+      const id = group.tabIds.find((tabId) => tabMap[tabId]?.url === url);
       if (id) {
         const item = groupEl.querySelector(`[data-tab-id="${id}"]`);
         if (item) item.remove();
       }
     }
-    // Update cache to remove closed tabs from this group
     await removeTabsFromGroupCache(group, urlsToClose);
   }
 }
@@ -533,30 +553,67 @@ async function closeGroup(group, tabMap, frequentUrls, groupEl) {
 async function removeGroupFromCache(group) {
   const data = await chrome.storage.local.get(STORAGE_GROUPS_KEY);
   if (!data[STORAGE_GROUPS_KEY]) return;
-  const { groups, tabMap } = data[STORAGE_GROUPS_KEY];
-  const updated = groups.filter(g => g.name !== group.name);
-  await chrome.storage.local.set({ [STORAGE_GROUPS_KEY]: { groups: updated, tabMap } });
+  const { groups, tabMap, groupMode } = data[STORAGE_GROUPS_KEY];
+  const updated = groups.filter((entry) => entry.name !== group.name);
+  await chrome.storage.local.set({ [STORAGE_GROUPS_KEY]: { groups: updated, tabMap, groupMode } });
 }
 
 async function removeTabsFromGroupCache(group, closedUrls) {
   const data = await chrome.storage.local.get(STORAGE_GROUPS_KEY);
   if (!data[STORAGE_GROUPS_KEY]) return;
-  const { groups, tabMap } = data[STORAGE_GROUPS_KEY];
+  const { groups, tabMap, groupMode } = data[STORAGE_GROUPS_KEY];
   const closedUrlSet = new Set(closedUrls);
-  const updated = groups.map(g => {
-    if (g.name !== group.name) return g;
+  const updated = groups.map((entry) => {
+    if (entry.name !== group.name) return entry;
     return {
-      ...g,
-      tabIds: g.tabIds.filter(id => !closedUrlSet.has(tabMap[id]?.url))
+      ...entry,
+      tabIds: entry.tabIds.filter((id) => !closedUrlSet.has(tabMap[id]?.url)),
     };
   });
-  await chrome.storage.local.set({ [STORAGE_GROUPS_KEY]: { groups: updated, tabMap } });
+  await chrome.storage.local.set({ [STORAGE_GROUPS_KEY]: { groups: updated, tabMap, groupMode } });
 }
 
-// ─── UI helpers ──────────────────────────────────────────────────────────────
+function showModeNotice(autonomyState, groupingMode) {
+  const existing = document.getElementById(MODE_NOTICE_ID);
+  if (existing) existing.remove();
 
-function showStatus(msg) {
-  statusEl.innerHTML = `<span class="spinner"></span> ${msg}`;
+  const notice = document.createElement("div");
+  notice.id = MODE_NOTICE_ID;
+  notice.style.cssText = [
+    "margin-bottom:10px",
+    "padding:9px 10px",
+    "border:1px solid #e5e7eb",
+    "border-radius:8px",
+    "background:#fafafa",
+    "font-size:11px",
+    "line-height:1.45",
+    "color:#4b5563",
+  ].join(";");
+
+  const modeLabel = autonomyState?.mode === "trusted_autonomy" ? "Trusted autonomy" : "Observation mode";
+  const reasonText = autonomyState?.reasons?.[0] || "Protecting focus first while learning your safer contexts.";
+  const fallbackText =
+    groupingMode === "fallback_grouping"
+      ? `<div style="margin-top:4px;color:#6b7280;">Using simple local grouping while on-device AI is unavailable.</div>`
+      : "";
+
+  notice.innerHTML = `
+    <div style="font-weight:600;color:#111827;">${modeLabel}</div>
+    <div style="margin-top:3px;">${reasonText}</div>
+    ${fallbackText}
+  `;
+
+  const anchor = statusEl.style.display !== "none" ? statusEl : groupsEl;
+  anchor.parentNode.insertBefore(notice, anchor);
+}
+
+function hideModeNotice() {
+  const existing = document.getElementById(MODE_NOTICE_ID);
+  if (existing) existing.remove();
+}
+
+function showStatus(message) {
+  statusEl.innerHTML = `<span class="spinner"></span> ${message}`;
   statusEl.style.display = "block";
 }
 
@@ -564,8 +621,8 @@ function hideStatus() {
   statusEl.style.display = "none";
 }
 
-function showError(msg) {
-  errorEl.textContent = msg;
+function showError(message) {
+  errorEl.textContent = message;
   errorEl.style.display = "block";
   hideStatus();
 }

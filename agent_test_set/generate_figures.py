@@ -82,6 +82,113 @@ def draw_rect(x, y, width, height, fill, rx=8, opacity=None):
     return f'<rect x="{x}" y="{y}" width="{width}" height="{height}" rx="{rx}" fill="{fill}"{opacity_attr}/>'
 
 
+def draw_arrow(x1, y1, x2, y2, stroke="#7a93aa", width=3):
+    return (
+        f'<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">'
+        f'<polygon points="0 0, 10 3.5, 0 7" fill="{stroke}"/></marker></defs>'
+        f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{stroke}" stroke-width="{width}" marker-end="url(#arrowhead)"/>'
+    )
+
+
+def generate_system_loop_diagram():
+    width, height = 1200, 640
+    elements = svg_header(width, height)
+    elements.append(draw_text(60, 70, "System Loop", size=28, weight=700))
+    elements.append(
+        draw_text(
+            60,
+            100,
+            "The browser agent continuously observes, predicts, acts conservatively, and records outcomes.",
+            size=15,
+            fill="#4c667d",
+        )
+    )
+
+    boxes = [
+        {"x": 80, "y": 180, "w": 220, "h": 180, "fill": "#eaf3fb", "title": "Observe", "lines": ["Open tabs", "Active tab", "Cached groups", "Visit history", "Recent activations", "Raw tab events"]},
+        {"x": 350, "y": 180, "w": 220, "h": 180, "fill": "#eef7f1", "title": "Predict", "lines": ["willNeedInNext15Min", "Recency / frequency", "Revisit interval", "Affinity patterns", "Regret / safe / protect"]},
+        {"x": 620, "y": 180, "w": 220, "h": 180, "fill": "#fff3e8", "title": "Act", "lines": ["auto_sleep", "auto_wake", "Hard guardrails", "No autonomous close", "OpenAI not on hot path"]},
+        {"x": 890, "y": 180, "w": 220, "h": 180, "fill": "#f6eefb", "title": "Learn", "lines": ["Undo", "Protect", "Good / Bad", "Reopen patterns", "Action log", "Training examples"]},
+    ]
+
+    for box in boxes:
+        elements.append(draw_rect(box["x"], box["y"], box["w"], box["h"], box["fill"], rx=18))
+        elements.append(draw_text(box["x"] + 24, box["y"] + 38, box["title"], size=24, weight=700))
+        line_y = box["y"] + 72
+        for line in box["lines"]:
+            elements.append(draw_text(box["x"] + 24, line_y, f"- {line}", size=14, fill="#36506a"))
+            line_y += 22
+
+    elements.append(draw_arrow(300, 270, 350, 270))
+    elements.append(draw_arrow(570, 270, 620, 270))
+    elements.append(draw_arrow(840, 270, 890, 270))
+    elements.append(draw_arrow(1000, 390, 1000, 500))
+    elements.append(draw_arrow(1000, 500, 190, 500))
+    elements.append(draw_arrow(190, 500, 190, 360))
+
+    elements.append(draw_rect(140, 430, 920, 96, "#f8fbfd", rx=18))
+    elements.append(draw_text(170, 468, "Core product point", size=18, weight=700))
+    elements.append(draw_text(170, 498, "Tab Agent is agentic at the browser-tab level because it closes the loop locally: observe -> predict -> act -> learn.", size=15, fill="#36506a"))
+
+    elements.extend(svg_footer())
+    (FIGURES_DIR / "system_loop_diagram.svg").write_text("\n".join(elements), encoding="utf-8")
+
+
+def generate_learning_loop_diagram():
+    width, height = 1280, 700
+    elements = svg_header(width, height)
+    elements.append(draw_text(60, 70, "Learning Loop", size=28, weight=700))
+    elements.append(
+        draw_text(
+            60,
+            100,
+            "Poor person's RL: logs and feedback are summarized into readable memory, then evaluated as advisory policy context.",
+            size=15,
+            fill="#4c667d",
+        )
+    )
+
+    top_boxes = [
+        {"x": 80, "y": 170, "w": 230, "h": 120, "fill": "#eef7f1", "title": "1. Agent acts", "lines": ["auto_sleep / auto_wake", "stores score, reason,", "features, outcome"]},
+        {"x": 360, "y": 170, "w": 230, "h": 120, "fill": "#fff3e8", "title": "2. User signals", "lines": ["Undo", "Protect", "Good / Bad", "Reopen / manual wake"]},
+        {"x": 640, "y": 170, "w": 260, "h": 120, "fill": "#eaf3fb", "title": "3. Export logs", "lines": ["actionLog", "feedbackLog", "tabEventLog", "trainingExamples"]},
+        {"x": 950, "y": 170, "w": 250, "h": 120, "fill": "#f6eefb", "title": "4. Build memory", "lines": ["Markdown artifact", "regret / safe / protect", "wake / mixed contexts"]},
+    ]
+
+    for box in top_boxes:
+        elements.append(draw_rect(box["x"], box["y"], box["w"], box["h"], box["fill"], rx=18))
+        elements.append(draw_text(box["x"] + 20, box["y"] + 36, box["title"], size=22, weight=700))
+        line_y = box["y"] + 68
+        for line in box["lines"]:
+            elements.append(draw_text(box["x"] + 20, line_y, line, size=14, fill="#36506a"))
+            line_y += 22
+
+    elements.append(draw_arrow(310, 230, 360, 230))
+    elements.append(draw_arrow(590, 230, 640, 230))
+    elements.append(draw_arrow(900, 230, 950, 230))
+
+    elements.append(draw_rect(140, 380, 420, 180, "#f8fbfd", rx=18))
+    elements.append(draw_text(170, 420, "5. Memory-on evaluation", size=22, weight=700))
+    elements.append(draw_text(170, 452, "- memory_off: current policy only", size=15, fill="#36506a"))
+    elements.append(draw_text(170, 478, "- memory_on: policy + advisory memory", size=15, fill="#36506a"))
+    elements.append(draw_text(170, 504, "- compare repeated-risk and", size=15, fill="#36506a"))
+    elements.append(draw_text(170, 528, "  feedback-sensitive scenarios", size=15, fill="#36506a"))
+
+    elements.append(draw_rect(650, 380, 500, 180, "#eef5fb", rx=18))
+    elements.append(draw_text(680, 420, "6. Result and product implication", size=22, weight=700))
+    elements.append(draw_text(680, 452, "- fixed benchmark for context", size=15, fill="#36506a"))
+    elements.append(draw_text(680, 478, "- personalized benchmark for memory", size=15, fill="#36506a"))
+    elements.append(draw_text(680, 504, "- if useful later, memory can become", size=15, fill="#36506a"))
+    elements.append(draw_text(680, 528, "  live advisory context in the runtime", size=15, fill="#36506a"))
+
+    elements.append(draw_arrow(1075, 290, 1075, 360))
+    elements.append(draw_arrow(1075, 360, 860, 360))
+    elements.append(draw_arrow(650, 470, 560, 470))
+
+    elements.extend(svg_footer())
+    (FIGURES_DIR / "learning_loop_diagram.svg").write_text("\n".join(elements), encoding="utf-8")
+
+
 def generate_overall_chart(rows):
     width, height = 980, 620
     left, right, top, bottom = 120, 70, 120, 120
@@ -293,6 +400,8 @@ def main():
     rows = read_rows()
     scenarios = read_scenarios()
 
+    generate_system_loop_diagram()
+    generate_learning_loop_diagram()
     generate_overall_chart(rows)
     generate_category_chart(rows)
     generate_temporal_walkthrough(scenarios)
@@ -304,6 +413,8 @@ Generated local visuals for the current benchmark.
 
 Files:
 
+- `system_loop_diagram.svg`
+- `learning_loop_diagram.svg`
 - `overall_context_comparison.svg`
 - `category_context_comparison.svg`
 - `temporal_ambiguity_walkthrough.svg`

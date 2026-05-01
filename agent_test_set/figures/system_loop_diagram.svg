@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" fill="none">
+<rect width="100%" height="100%" fill="#f7fbff"/>
+<rect x="18" y="18" width="calc(100% - 36px)" height="calc(100% - 36px)" rx="18" fill="#ffffff" stroke="#d7e4ef"/>
+<text x="60" y="70" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" fill="#15324b" text-anchor="start">System Loop</text>
+<text x="60" y="100" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#4c667d" text-anchor="start">The browser agent continuously observes, predicts, acts conservatively, and records outcomes.</text>
+<rect x="80" y="180" width="220" height="180" rx="18" fill="#eaf3fb"/>
+<text x="104" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700" fill="#15324b" text-anchor="start">Observe</text>
+<text x="104" y="252" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Open tabs</text>
+<text x="104" y="274" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Active tab</text>
+<text x="104" y="296" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Cached groups</text>
+<text x="104" y="318" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Visit history</text>
+<text x="104" y="340" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Recent activations</text>
+<text x="104" y="362" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Raw tab events</text>
+<rect x="350" y="180" width="220" height="180" rx="18" fill="#eef7f1"/>
+<text x="374" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700" fill="#15324b" text-anchor="start">Predict</text>
+<text x="374" y="252" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- willNeedInNext15Min</text>
+<text x="374" y="274" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Recency / frequency</text>
+<text x="374" y="296" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Revisit interval</text>
+<text x="374" y="318" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Affinity patterns</text>
+<text x="374" y="340" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Regret / safe / protect</text>
+<rect x="620" y="180" width="220" height="180" rx="18" fill="#fff3e8"/>
+<text x="644" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700" fill="#15324b" text-anchor="start">Act</text>
+<text x="644" y="252" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- auto_sleep</text>
+<text x="644" y="274" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- auto_wake</text>
+<text x="644" y="296" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Hard guardrails</text>
+<text x="644" y="318" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- No autonomous close</text>
+<text x="644" y="340" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- OpenAI not on hot path</text>
+<rect x="890" y="180" width="220" height="180" rx="18" fill="#f6eefb"/>
+<text x="914" y="218" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="700" fill="#15324b" text-anchor="start">Learn</text>
+<text x="914" y="252" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Undo</text>
+<text x="914" y="274" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Protect</text>
+<text x="914" y="296" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Good / Bad</text>
+<text x="914" y="318" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Reopen patterns</text>
+<text x="914" y="340" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Action log</text>
+<text x="914" y="362" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" fill="#36506a" text-anchor="start">- Training examples</text>
+<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7a93aa"/></marker></defs><line x1="300" y1="270" x2="350" y2="270" stroke="#7a93aa" stroke-width="3" marker-end="url(#arrowhead)"/>
+<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7a93aa"/></marker></defs><line x1="570" y1="270" x2="620" y2="270" stroke="#7a93aa" stroke-width="3" marker-end="url(#arrowhead)"/>
+<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7a93aa"/></marker></defs><line x1="840" y1="270" x2="890" y2="270" stroke="#7a93aa" stroke-width="3" marker-end="url(#arrowhead)"/>
+<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7a93aa"/></marker></defs><line x1="1000" y1="390" x2="1000" y2="500" stroke="#7a93aa" stroke-width="3" marker-end="url(#arrowhead)"/>
+<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7a93aa"/></marker></defs><line x1="1000" y1="500" x2="190" y2="500" stroke="#7a93aa" stroke-width="3" marker-end="url(#arrowhead)"/>
+<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7a93aa"/></marker></defs><line x1="190" y1="500" x2="190" y2="360" stroke="#7a93aa" stroke-width="3" marker-end="url(#arrowhead)"/>
+<rect x="140" y="430" width="920" height="96" rx="18" fill="#f8fbfd"/>
+<text x="170" y="468" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#15324b" text-anchor="start">Core product point</text>
+<text x="170" y="498" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" fill="#36506a" text-anchor="start">Tab Agent is agentic at the browser-tab level because it closes the loop locally: observe -> predict -> act -> learn.</text>
+</svg>
