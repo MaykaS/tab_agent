@@ -126,6 +126,16 @@ to:
 
 only when it has enough history, enough feedback/safe evidence, and no strong negative recent pattern.
 
+### 2.5. Quiet surfaces
+
+The UI should stay concise.
+
+- the popup is an **action surface**
+- the Stats page is a **trust surface**
+- raw logs and deeper telemetry stay secondary
+
+The user should not need to read paragraphs to understand what the agent is doing.
+
 ### 3. Caution-first memory
 
 Tab Agent should learn faster from costly mistakes than from weak positive evidence.

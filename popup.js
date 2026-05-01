@@ -121,7 +121,7 @@ async function upgradeGroupingInBackground(runId, autonomyState, frequentUrls, t
 
   const sourceTabMap = tabMap || Object.fromEntries(sourceTabs.map((tab) => [tab.id, tab]));
 
-  showStatus("Refining groups with on-device AI...");
+  showStatus("Refining...");
   const aiResult = await tryAiGrouping(sourceTabs);
   if (!aiResult || latestRunId !== runId) {
     hideStatus();
@@ -598,26 +598,28 @@ function showModeNotice(autonomyState, groupingMode) {
   notice.id = MODE_NOTICE_ID;
   notice.style.cssText = [
     "margin-bottom:10px",
-    "padding:9px 10px",
+    "padding:8px 10px",
     "border:1px solid #e5e7eb",
     "border-radius:8px",
     "background:#fafafa",
     "font-size:11px",
-    "line-height:1.45",
+    "line-height:1.3",
     "color:#4b5563",
   ].join(";");
 
-  const modeLabel = autonomyState?.mode === "trusted_autonomy" ? "Trusted autonomy" : "Observation mode";
-  const reasonText = autonomyState?.reasons?.[0] || "Protecting focus first while learning your safer contexts.";
-  const fallbackText =
-    groupingMode === "fallback_grouping"
-      ? `<div style="margin-top:4px;color:#6b7280;">Using simple local grouping while on-device AI is unavailable.</div>`
-      : "";
+  const modeLabel = autonomyState?.mode === "trusted_autonomy" ? "Trusted" : "Observing";
+  const groupLabel = groupingMode === "ai_grouping" ? "AI groups" : "Local groups";
+  const progressLabel =
+    autonomyState?.mode === "trusted_autonomy"
+      ? "Autonomy on"
+      : `Trust ${Math.round((autonomyState?.progress || 0) * 100)}%`;
 
   notice.innerHTML = `
-    <div style="font-weight:600;color:#111827;">${modeLabel}</div>
-    <div style="margin-top:3px;">${reasonText}</div>
-    ${fallbackText}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+      <span style="display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;background:#eef2ff;color:#374151;font-weight:600;">${modeLabel}</span>
+      <span style="display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;background:#f3f4f6;color:#4b5563;">${groupLabel}</span>
+      <span style="display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;background:#f9fafb;color:#6b7280;">${progressLabel}</span>
+    </div>
   `;
 
   const anchor = statusEl.style.display !== "none" ? statusEl : groupsEl;

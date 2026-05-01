@@ -42,6 +42,46 @@ function truncateMiddle(text, maxLength = 72) {
   return `${value.slice(0, head)}...${value.slice(value.length - tail)}`;
 }
 
+function formatModeLabel(mode) {
+  return mode === "trusted_autonomy" ? "Trusted autonomy" : "Observation mode";
+}
+
+function buildMiniStat(label, value, tone = "neutral") {
+  const toneStyles = {
+    neutral: "color:#111827;background:#f9fafb;border:1px solid #eceff3;",
+    positive: "color:#166534;background:#f0fdf4;border:1px solid #dcfce7;",
+    caution: "color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;",
+    info: "color:#1d4ed8;background:#eff6ff;border:1px solid #dbeafe;",
+  };
+
+  return `
+    <div style="min-width:120px;flex:1;padding:12px 14px;border-radius:10px;${toneStyles[tone] || toneStyles.neutral}">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">${escapeHtml(label)}</div>
+      <div style="font-size:20px;font-weight:700;">${escapeHtml(String(value))}</div>
+    </div>
+  `;
+}
+
+function renderMemoryTags(items, emptyLabel, tone = "neutral", labelKey = "label") {
+  const tones = {
+    neutral: "background:#f3f4f6;color:#4b5563;border:1px solid #e5e7eb;",
+    caution: "background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;",
+    safe: "background:#f0fdf4;color:#166534;border:1px solid #dcfce7;",
+    info: "background:#eff6ff;color:#1d4ed8;border:1px solid #dbeafe;",
+  };
+
+  if (!items || items.length === 0) {
+    return `<span style="font-size:12px;color:#9ca3af;">${escapeHtml(emptyLabel)}</span>`;
+  }
+
+  return items
+    .map((item) => {
+      const label = item?.[labelKey] || item?.groupName || item?.url || "Untitled";
+      return `<span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:600;${tones[tone] || tones.neutral}">${escapeHtml(String(label))}</span>`;
+    })
+    .join("");
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   await renderAll();
 
@@ -206,27 +246,42 @@ async function renderAgentActivitySection() {
   const wrap = document.getElementById("agent-activity-wrap");
   if (!wrap) return;
 
-  const [actions, openAiSummary, tabEvents] = await Promise.all([
+  const [actions, openAiSummary, tabEvents, exportData] = await Promise.all([
     getAgentActionLog(ACTION_FEED_LIMIT),
     getOpenAiPolicySummary(),
     typeof getTabEventLog === "function" ? getTabEventLog(EVENT_FEED_LIMIT) : Promise.resolve([]),
+    loadExportData(),
   ]);
 
-  if (!actions.length && !openAiSummary && !tabEvents.length) {
+  const autonomyState = exportData.autonomyState || {};
+  const memorySummary = exportData.agentMemorySummary || {};
+  const evaluationSummary = exportData.evaluationSummary || {};
+  const autoSummary = exportData.autonomousSummary || {};
+  const cautionAreas = (memorySummary.cautionAreas || []).slice(0, 4);
+  const safeAreas = (memorySummary.safeSleepAreas || []).slice(0, 4);
+  const wakePatterns = (memorySummary.wakePatterns || []).slice(0, 3);
+  const explicitGood = autoSummary.explicitGoodCount ?? 0;
+  const frictionCount =
+    (evaluationSummary.feedbackSpecificErrors?.undoCount ?? autoSummary.undoCount ?? 0) +
+    (evaluationSummary.feedbackSpecificErrors?.regretCount ?? autoSummary.regretCount ?? 0) +
+    (evaluationSummary.feedbackSpecificErrors?.explicitBadCount ?? autoSummary.explicitBadCount ?? 0);
+  const trustPercent = Math.round((autonomyState.progress || 0) * 100);
+
+  if (!actions.length && !openAiSummary && !tabEvents.length && !autonomyState.mode) {
     wrap.innerHTML = `
-      <p style="font-size:13px;color:#888;margin-bottom:10px;">No autonomous actions yet.</p>
-      <p style="font-size:12px;color:#aaa;">Once the background agent starts auto-sleeping or waking tabs, this feed will explain what it did and let you undo or protect contexts.</p>
+      <p style="font-size:13px;color:#888;margin-bottom:10px;">No agent activity yet.</p>
+      <p style="font-size:12px;color:#aaa;">Use the popup a bit first. This page will start showing trust progress, learned context, and recent actions.</p>
     `;
     return;
   }
 
   const summaryHtml = openAiSummary
     ? `
-      <div style="margin-bottom:14px;padding:12px 14px;background:#f7fbff;border:1px solid #d9ecfb;border-radius:8px;">
-        <div style="font-size:12px;font-weight:600;color:#1a6fa3;margin-bottom:6px;">OpenAI policy summary</div>
-        <div style="font-size:12px;color:#555;line-height:1.6;">${escapeHtml(openAiSummary.summary || "No summary yet.")}</div>
+      <div style="margin-bottom:14px;padding:12px 14px;background:#f7fbff;border:1px solid #d9ecfb;border-radius:10px;">
+        <div style="font-size:12px;font-weight:600;color:#1a6fa3;margin-bottom:6px;">Advisory summary</div>
+        <div style="font-size:12px;color:#555;line-height:1.5;">${escapeHtml(openAiSummary.summary || "No summary yet.")}</div>
         ${Array.isArray(openAiSummary.recommendations) && openAiSummary.recommendations.length
-          ? `<div style="font-size:12px;color:#666;margin-top:8px;">Recommendations: ${escapeHtml(openAiSummary.recommendations.join(" | "))}</div>`
+          ? `<div style="font-size:11px;color:#6b7280;margin-top:8px;">${escapeHtml(openAiSummary.recommendations.slice(0, 2).join(" | "))}</div>`
           : ""}
       </div>
     `
@@ -242,17 +297,17 @@ async function renderAgentActivitySection() {
           <div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${badgeColor};">${escapeHtml(action.type.replace("_", " "))}</span>
-              <span style="font-size:11px;color:#888;">confidence ${(Number(action.confidence || 0) * 100).toFixed(0)}%</span>
-              <span style="font-size:11px;color:#888;">${new Date(action.createdAt).toLocaleString()}</span>
+              <span style="font-size:11px;color:#888;">${(Number(action.confidence || 0) * 100).toFixed(0)}%</span>
+              <span style="font-size:11px;color:#888;">${new Date(action.createdAt).toLocaleTimeString()}</span>
             </div>
             <div style="font-size:13px;font-weight:600;color:#333;margin-top:6px;">
               ${escapeHtml(action.target?.groupName || action.target?.titles?.[0] || "Untitled target")}
             </div>
-            <div style="font-size:12px;color:#555;line-height:1.6;margin-top:4px;">
+            <div style="font-size:12px;color:#555;line-height:1.5;margin-top:4px;">
               ${escapeHtml(action.reason || "No explanation recorded.")}
             </div>
             <div style="font-size:12px;color:#888;margin-top:6px;">
-              Outcome: ${escapeHtml(action.outcome?.status || "pending")}
+              ${escapeHtml(action.outcome?.status || "pending")}
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
@@ -287,11 +342,36 @@ async function renderAgentActivitySection() {
   `).join("");
 
   const detailsState = captureDetailsState(wrap);
+  const trustSummary = `
+    <div style="display:grid;gap:12px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        ${buildMiniStat("Mode", formatModeLabel(autonomyState.mode), autonomyState.mode === "trusted_autonomy" ? "positive" : "info")}
+        ${buildMiniStat("Trust progress", `${trustPercent}%`, autonomyState.mode === "trusted_autonomy" ? "positive" : "info")}
+        ${buildMiniStat("Recent wins", explicitGood + (evaluationSummary.wakeSuccessCount ?? 0), "positive")}
+        ${buildMiniStat("Recent friction", frictionCount, frictionCount > 0 ? "caution" : "neutral")}
+      </div>
+      <div style="padding:12px 14px;border:1px solid #eceff3;border-radius:10px;background:#fafafa;">
+        <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">What I'm protecting</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(cautionAreas, "Nothing protected yet.", "caution")}</div>
+      </div>
+      <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+        <div style="padding:12px 14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
+          <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">Lower-risk areas</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(safeAreas, "Still learning safe contexts.", "safe")}</div>
+        </div>
+        <div style="padding:12px 14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
+          <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">Useful wake contexts</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(wakePatterns, "No wake pattern yet.", "info")}</div>
+        </div>
+      </div>
+    </div>
+  `;
 
   wrap.innerHTML = `
+    ${trustSummary}
     ${summaryHtml}
-    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;">
-      <div style="font-size:12px;color:#666;">Autonomous activity details</div>
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin:14px 0 12px;">
+      <div style="font-size:12px;color:#666;">Review and export</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
         <button class="btn btn-secondary" id="export-agent-data">Export data</button>
         <button class="btn btn-primary" id="generate-openai-summary">Generate AI summary</button>
@@ -299,7 +379,7 @@ async function renderAgentActivitySection() {
     </div>
     <details id="agent-actions-details" style="border:1px solid #eee;border-radius:8px;background:#fcfcfc;" ${detailsState["agent-actions-details"] ? "open" : ""}>
       <summary style="padding:10px 12px;cursor:pointer;font-size:12px;color:#666;font-weight:600;list-style:none;">
-        Recent autonomous actions and feedback (${actions.length})
+        Recent actions (${actions.length})
       </summary>
       <div style="padding:12px;border-top:1px solid #f0f0f0;">
         ${actionCards
@@ -310,15 +390,15 @@ async function renderAgentActivitySection() {
     <div style="margin-top:16px;">
       <details id="tab-event-details" style="border:1px solid #eee;border-radius:8px;background:#fcfcfc;" ${detailsState["tab-event-details"] ? "open" : ""}>
         <summary style="padding:10px 12px;cursor:pointer;font-size:12px;color:#666;font-weight:600;list-style:none;">
-          Recent tab event log (${tabEvents.length})
+          Event log (${tabEvents.length})
         </summary>
         <div style="padding:0 12px 12px 12px;border-top:1px solid #f0f0f0;">
           <div style="font-size:11px;color:#888;margin:10px 0;">
-            Raw lifecycle events are stored for benchmarking and context analysis. Showing the newest ${Math.min(tabEvents.length, EVENT_FEED_LIMIT)} items.
+            Showing the newest ${Math.min(tabEvents.length, EVENT_FEED_LIMIT)} lifecycle events.
           </div>
           ${eventCards
             ? `<div style="display:grid;gap:8px;">${eventCards}</div>`
-            : `<div style="font-size:12px;color:#888;">No raw tab events captured yet. Reload the extension, switch tabs, or use sleep/wake to populate this feed.</div>`}
+            : `<div style="font-size:12px;color:#888;">No tab events yet.</div>`}
         </div>
       </details>
     </div>
