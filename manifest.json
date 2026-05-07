@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Tab Agent",
   "version": "0.2.0",
-  "description": "AI-powered tab grouping using Gemini Nano. No API key required.",
+  "description": "Local-first browser tab memory agent that groups tabs, sleeps low-need tabs, wakes contexts, and learns from feedback.",
 
   "permissions": [
     "tabs",

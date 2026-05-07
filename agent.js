@@ -28,6 +28,7 @@ const TOOLING_HOST_MARKERS = [
   "127.0.0.1",
   "tab-agent-web.vercel.app",
 ];
+const CONSERVATIVE_DECISION_LIMIT = 4;
 
 function buildHourAffinity(counts, currentHour) {
   const total = Object.values(counts || {}).reduce((sum, count) => sum + count, 0);
@@ -69,6 +70,155 @@ function buildSleepReason(features) {
 function buildObservationReason(features) {
   const base = buildSleepReason(features).replace(/^Slept/, "Would sleep");
   return `${base} Observation mode is still learning your safe contexts first.`;
+}
+
+function buildConservativeDecision(features, policy, frequentUrls, autonomyState, needScore) {
+  const negativeSignals = autonomyState?.signals?.negativeCount || 0;
+  const positiveSignals = autonomyState?.signals?.positiveCount || 0;
+  const limitedHistory = Boolean(features.coldStart || features.activationCount < 2);
+
+  if (autonomyState?.mode !== "trusted_autonomy" && isObservationCandidate(features, policy, frequentUrls)) {
+    return {
+      kind: "observation_mode",
+      label: "Would sleep, but still observing",
+      reason: buildObservationReason(features),
+      priority: 6,
+      needScore,
+    };
+  }
+
+  if (features.protectPinned || features.protectAudible) {
+    const protectedReason = features.protectPinned && features.protectAudible
+      ? "this tab is pinned and audible."
+      : features.protectPinned
+        ? "this tab is pinned."
+        : "this tab is audible.";
+    return {
+      kind: "pinned_or_audible",
+      label: "Did not sleep: pinned or audible",
+      reason: `Did not sleep: ${protectedReason}`,
+      priority: 0,
+      needScore,
+    };
+  }
+
+  if (features.protectedByUser || features.protectionCount > 0 || features.groupProtectionCount > 0 || features.memoryRiskScore > 0) {
+    return {
+      kind: "protected_context",
+      label: "Did not sleep: protected context",
+      reason: "Did not sleep: user previously protected this context or the agent has learned extra caution here.",
+      priority: 1,
+      needScore,
+    };
+  }
+
+  if (
+    features.groupRecentlyActive ||
+    features.recentGroupReentry ||
+    features.recentUrlReentry ||
+    (features.minutesSinceLastActive !== null && features.minutesSinceLastActive <= policy.recentProtectMinutes)
+  ) {
+    return {
+      kind: "recent_activity",
+      label: "Did not sleep: recently active",
+      reason: "Did not sleep: this tab or context was recently active, so the agent stayed conservative.",
+      priority: 2,
+      needScore,
+    };
+  }
+
+  if (features.highValueContext || features.recruitingContext || features.toolingContext) {
+    return {
+      kind: "high_value_context",
+      label: "Did not sleep: high-value domain",
+      reason: "Did not sleep: this domain looks high-value for active work, so the agent avoided breaking focus.",
+      priority: 3,
+      needScore,
+    };
+  }
+
+  if (negativeSignals > positiveSignals + 1) {
+    return {
+      kind: "recent_regret",
+      label: "Did not sleep: recent regret raised caution",
+      reason: "Did not sleep: recent regret or undo signals increased caution, so the agent held back.",
+      priority: 4,
+      needScore,
+    };
+  }
+
+  if (limitedHistory || autonomyState?.mode !== "trusted_autonomy") {
+    return {
+      kind: "limited_history",
+      label: "Did not sleep: still learning",
+      reason: "Did not sleep: not enough behavior history or feedback yet to sleep this tab confidently.",
+      priority: 5,
+      needScore,
+    };
+  }
+
+  if (frequentUrls.has(features.normalizedUrl)) {
+    return {
+      kind: "frequent_revisit",
+      label: "Did not sleep: frequently revisited",
+      reason: "Did not sleep: this tab is revisited often enough that the agent keeps it safer by default.",
+      priority: 5,
+      needScore,
+    };
+  }
+
+  return null;
+}
+
+async function getRecentConservativeDecisions(limit = CONSERVATIVE_DECISION_LIMIT) {
+  const policy = await getEffectiveAgentPolicy();
+  const { cached } = await getGroupingState();
+  if (!cached?.groups?.length) return [];
+
+  const tabs = await chrome.tabs.query({});
+  const trackableTabs = tabs.filter((tab) => shouldTrackTabUrl(tab.url) && !tab.active);
+  if (!trackableTabs.length) return [];
+
+  const frequentUrls = await getFrequentUrls(policy.frequentVisits24h, 24);
+  const context = await buildDecisionContext(policy);
+  const activeGroupName = context.recentActivations[0]?.groupName || null;
+  const decisions = [];
+
+  for (const tab of trackableTabs) {
+    const { groupName, groupIndex } = findGroupMatch(tab.url, cached);
+    const features = await buildTabFeatures(tab, groupName, activeGroupName, policy, context);
+    const needScore = scoreNeed(features, policy, frequentUrls);
+
+    if (isAutonomousSleepCandidate(features, policy, frequentUrls, context.autonomyState, needScore)) {
+      continue;
+    }
+
+    const explanation = buildConservativeDecision(features, policy, frequentUrls, context.autonomyState, needScore);
+    if (!explanation) continue;
+
+    decisions.push({
+      ...explanation,
+      target: {
+        title: tab.title || "Untitled",
+        url: tab.url,
+        groupName,
+        groupIndex,
+      },
+    });
+  }
+
+  decisions.sort((a, b) => (a.priority - b.priority) || (a.needScore - b.needScore));
+
+  const seenKinds = new Set();
+  const curated = [];
+  for (const decision of decisions) {
+    if (seenKinds.has(decision.kind)) continue;
+    seenKinds.add(decision.kind);
+    curated.push(decision);
+    if (curated.length >= limit) break;
+  }
+
+  return curated;
 }
 
 function buildWakeReason(groupName) {

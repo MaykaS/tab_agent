@@ -2,7 +2,7 @@
 
 Tab Agent is a **browser tab memory-management agent**.
 
-For the current product framing, read [V2_PRODUCT_BRIEF.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/V2_PRODUCT_BRIEF.md).
+For the current product framing, read [V2_PRODUCT_BRIEF.md](./V2_PRODUCT_BRIEF.md).
 
 It does four things:
 
@@ -16,7 +16,7 @@ It does four things:
 There are **two repos**:
 
 - **`tab_agent`** - the Chrome extension
-- **`tab_agent_web`** - the website, backend, admin dashboard, and OpenAI summary endpoint
+- **`tab-agent-web`** - the website, backend, admin dashboard, and OpenAI summary endpoint
 
 If you want to change **extension behavior**, this is the repo to edit.  
 Updating the web repo alone is **not enough**.
@@ -36,7 +36,7 @@ This repo contains the extension runtime:
 
 ## What lives in the web repo
 
-The separate `tab_agent_web` repo contains:
+The separate `tab-agent-web` repo contains:
 
 - landing site
 - study submission API
@@ -152,7 +152,54 @@ This keeps the agent:
 - explainable
 - benchmarkable
 
-For the deeper product strategy behind this split, see [V2_PRODUCT_BRIEF.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/V2_PRODUCT_BRIEF.md).
+For the deeper product strategy behind this split, see [V2_PRODUCT_BRIEF.md](./V2_PRODUCT_BRIEF.md).
+
+## Architecture
+
+Tab Agent is split into a few focused runtime pieces:
+
+- `popup.js` handles the grouping UI, manual sleep / wake / close actions, and the trust-status surface shown to the user
+- `background.js` observes the tab lifecycle, records activation and reopen signals, runs the 5-minute agent cycle, and triggers context wake behavior
+- `agent.js` contains the local autonomous policy, near-term need scoring, and sleep / wake decision logic
+- `storage.js` maintains the local behavior model, feedback logs, reward mapping, adaptive policy summary, and exported training examples
+- `stats.js` and `stats.html` power the Stats page, feedback UI, export flow, and OpenAI advisory summary button
+
+## Learning loop
+
+Tab Agent learns from both explicit and implicit signals, but the current runtime is still heuristic and adaptive rather than a full online RL system.
+
+Explicit signals:
+
+- `Undo`
+- `Protect`
+- `Good`
+- `Bad`
+
+Implicit signals:
+
+- quick reopen after an autonomous sleep
+- manual wake after sleep
+- safe-after-15-minutes outcomes
+- repeated activation and re-entry patterns
+
+Reward mapping in the exported training examples:
+
+- `safe_after_15m` / `good_feedback` = `+1`
+- `protect` = `-0.5`
+- `undo` / `bad_feedback` / regret-like outcomes = `-1`
+
+## Publishability improvements
+
+The current extension surface now makes the learning and safety story visible for pilots, professors, and technical readers:
+
+- explicit and implicit learning signals are shown directly in the Stats page
+- a reward ledger explains how recent autonomous sleep outcomes translate into reward-shaped feedback
+- conservative non-action explanations show why the agent held back instead of sleeping a tab
+- observation mode and trusted autonomy are visible with trust progress, reasons, and missing signals
+- agent memory is surfaced as protection, safe-sleep, and useful wake areas
+- baseline comparison framing makes the static-rule vs manual-assistant vs Tab Agent story easier to explain
+
+Tab Agent uses reward-shaped feedback signals to tune a conservative local policy. It is not currently a fully trained online reinforcement learning system.
 
 ## Benchmark framing
 
@@ -175,7 +222,7 @@ Core metrics:
 
 ## Test set
 
-This repo includes a reusable scenario set in [agent_test_set/README.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/agent_test_set/README.md).
+This repo includes a reusable scenario set in [agent_test_set/README.md](./agent_test_set/README.md).
 
 Use it to test:
 
@@ -186,7 +233,7 @@ Use it to test:
 - baseline-vs-agent comparison cases
 - summary-vs-raw-vs-hybrid context comparisons
 
-The generated benchmark report lives at [agent_test_set/context_benchmark_report.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/agent_test_set/context_benchmark_report.md).
+The generated benchmark report lives at [agent_test_set/context_benchmark_report.md](./agent_test_set/context_benchmark_report.md).
 
 The current evaluation story is split in two:
 
@@ -232,7 +279,7 @@ Important:
 - the **extension runtime** lives in this repo
 - using the Vercel link alone is **not enough** to generate real tab behavior data
 
-For a single-file version you can send directly, use [PILOT_USER_SETUP.md](/C:/Users/mayas/OneDrive/Desktop/Projects/tab%20agent/PILOT_USER_SETUP.md).
+For a single-file version you can send directly, use [PILOT_USER_SETUP.md](./PILOT_USER_SETUP.md).
 
 ## Gemini Nano setup
 
@@ -261,9 +308,9 @@ Expected result:
 
 ## Known limitations
 
-- browser-only for now
-- not full system memory management yet
+- browser-only for now, not OS-wide memory management
 - memory values are estimated on Chrome stable
-- the v1 policy is intentionally conservative
-- OpenAI summaries are advisory only
-- offline learning data is exported, but the runtime policy is still mostly heuristic
+- Gemini Nano availability depends on Chrome flags and local model availability
+- the runtime policy is intentionally conservative and still mostly heuristic / adaptive rather than a trained online RL model
+- OpenAI summaries are advisory only and do not control browser actions
+- public install is currently developer-mode from GitHub

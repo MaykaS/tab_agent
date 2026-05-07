@@ -633,6 +633,41 @@ function buildTrainingExamples(actionLog = [], feedbackLog = [], tabEventLog = [
     });
 }
 
+function buildRewardLedger(trainingExamples = []) {
+  return (trainingExamples || []).map((example) => ({
+    time: example.createdAt,
+    target: example.target || {},
+    outcome: example.outcome || "pending",
+    reward: typeof example.reward === "number" ? example.reward : mapOutcomeToReward(example.outcome),
+    why: buildRewardExplanation(example.outcome),
+  }));
+}
+
+function buildRewardExplanation(outcomeStatus) {
+  if (outcomeStatus === "safe_after_15m") {
+    return "The tab stayed unused long enough to count as a safe sleep.";
+  }
+  if (outcomeStatus === "good_feedback") {
+    return "The user explicitly said this autonomous decision was helpful.";
+  }
+  if (outcomeStatus === "protect") {
+    return "The user marked this context as sensitive or important, so future sleep should be more cautious.";
+  }
+  if (outcomeStatus === "undo") {
+    return "The user immediately reversed the sleep, so the agent treats it as a mistake.";
+  }
+  if (outcomeStatus === "bad_feedback") {
+    return "The user explicitly said this autonomous decision was not helpful.";
+  }
+  if (String(outcomeStatus).includes("regret")) {
+    return "The user returned soon after the agent slept it.";
+  }
+  if (outcomeStatus === "manual_wake_after_sleep") {
+    return "The user woke the slept group manually. This is a caution signal, but it does not yet change the reward directly.";
+  }
+  return "No clear positive or negative outcome has been recorded yet.";
+}
+
 function buildEvaluationSummary(actionLog = [], feedbackLog = [], protectedContexts = {}, autonomyState = null, agentMemorySummary = null) {
   const autoSleepActions = (actionLog || []).filter((action) => action.type === "auto_sleep");
   const autoWakeActions = (actionLog || []).filter((action) => action.type === "auto_wake");
@@ -1467,6 +1502,7 @@ async function getAllDataForExport() {
     tabEventLog: data[TAB_EVENT_LOG_KEY] || [],
     recentTabEvents: await getRecentTabEventsForContext(),
     trainingExamples,
+    rewardLedger: buildRewardLedger(trainingExamples),
     agentMemorySummary,
     autonomousSummary: studySnapshot.autonomousSummary,
     baselineComparison: studySnapshot.baselineComparison,

@@ -82,6 +82,75 @@ function renderMemoryTags(items, emptyLabel, tone = "neutral", labelKey = "label
     .join("");
 }
 
+function formatSignedReward(value) {
+  const amount = Number(value || 0);
+  if (amount > 0) return `+${amount}`;
+  if (amount < 0) return `${amount}`;
+  return "0";
+}
+
+function formatOutcomeLabel(outcome) {
+  return String(outcome || "pending").replaceAll("_", " ");
+}
+
+function formatDecisionTarget(target = {}) {
+  return target.groupName || target.title || target.label || "Untitled context";
+}
+
+function getRewardTone(reward) {
+  if (reward > 0) return "positive";
+  if (reward < 0) return "caution";
+  return "neutral";
+}
+
+function buildRewardWhy(outcome) {
+  if (typeof buildRewardExplanation === "function") {
+    return buildRewardExplanation(outcome);
+  }
+  return "No clear positive or negative outcome has been recorded yet.";
+}
+
+function buildAutonomyHeadline(autonomyState) {
+  if (autonomyState.mode === "trusted_autonomy") {
+    return "Trusted autonomy: Tab Agent may sleep only high-confidence, low-risk tabs.";
+  }
+  return "Observation mode: Tab Agent is learning your patterns before sleeping tabs automatically.";
+}
+
+function buildAutonomySupportCopy(autonomyState) {
+  const reasons = autonomyState.reasons || [];
+  const negativeSignals = autonomyState.signals?.negativeCount || 0;
+  const positiveSignals = autonomyState.signals?.positiveCount || 0;
+
+  if (autonomyState.mode === "trusted_autonomy") {
+    return "Autonomy is unlocked because recent behavior, feedback, and trust signals are stable enough for conservative automatic sleeping.";
+  }
+  if (negativeSignals > positiveSignals + 1) {
+    return "Autonomy is blocked because recent mistakes or regret signals require more caution.";
+  }
+  if (reasons.length) {
+    return "Autonomy is not unlocked yet because the agent still needs more history, feedback, or stability before it should act automatically.";
+  }
+  return "Autonomy is still being earned. The agent prefers missing a sleep over breaking focus.";
+}
+
+function buildNeededSignals(autonomyState) {
+  const signals = autonomyState.signals || {};
+  const needs = [];
+
+  if ((signals.historyEvents || 0) < 4 && (signals.recentVisits || 0) < 15 && (signals.recentActivations || 0) < 8) {
+    needs.push("more real browsing history");
+  }
+  if ((signals.positiveCount || 0) < 2 && (signals.protectCount || 0) < 1) {
+    needs.push("more feedback or safe outcomes");
+  }
+  if ((signals.negativeCount || 0) > (signals.positiveCount || 0) + 1) {
+    needs.push("fewer recent regret or undo signals");
+  }
+
+  return needs;
+}
+
 function splitCurrentAndLearnedAreas(items, exportData) {
   const openTabs = exportData.openTabsSnapshot || [];
   const openGroups = new Set((exportData.groups || []).filter((group) => group.openTabCount > 0).map((group) => group.name));
@@ -273,19 +342,21 @@ async function renderAgentActivitySection() {
   const wrap = document.getElementById("agent-activity-wrap");
   if (!wrap) return;
 
-  const [actions, openAiSummary, tabEvents, exportData] = await Promise.all([
+  const [actions, openAiSummary, tabEvents, exportData, conservativeDecisions] = await Promise.all([
     getAgentActionLog(ACTION_FEED_LIMIT),
     getOpenAiPolicySummary(),
     typeof getTabEventLog === "function" ? getTabEventLog(EVENT_FEED_LIMIT) : Promise.resolve([]),
     loadExportData(),
+    typeof getRecentConservativeDecisions === "function" ? getRecentConservativeDecisions(4) : Promise.resolve([]),
   ]);
 
   const autonomyState = exportData.autonomyState || {};
   const memorySummary = exportData.agentMemorySummary || {};
   const evaluationSummary = exportData.evaluationSummary || {};
   const autoSummary = exportData.autonomousSummary || {};
-  const cautionAreas = (memorySummary.cautionAreas || []).slice(0, 4);
-  const safeAreas = (memorySummary.safeSleepAreas || []).slice(0, 4);
+  const rewardLedger = (exportData.rewardLedger || []).slice(0, 6);
+  const cautionAreas = (memorySummary.cautionAreas || []).slice(0, 5);
+  const safeAreas = (memorySummary.safeSleepAreas || []).slice(0, 5);
   const wakePatterns = (memorySummary.wakePatterns || []).slice(0, 3);
   const cautionSplit = splitCurrentAndLearnedAreas(cautionAreas, exportData);
   const safeSplit = splitCurrentAndLearnedAreas(safeAreas, exportData);
@@ -371,6 +442,36 @@ async function renderAgentActivitySection() {
   `).join("");
 
   const detailsState = captureDetailsState(wrap);
+  const autonomyReasons = (autonomyState.reasons || [])
+    .map((reason) => `<li style="margin-left:18px;color:#4b5563;line-height:1.5;">${escapeHtml(reason)}</li>`)
+    .join("");
+  const neededSignals = buildNeededSignals(autonomyState)
+    .map((item) => `<span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#f3f4f6;color:#4b5563;border:1px solid #e5e7eb;">${escapeHtml(item)}</span>`)
+    .join("");
+  const rewardRows = rewardLedger.map((entry) => {
+    const tone = getRewardTone(entry.reward);
+    const toneStyles = {
+      positive: "color:#166534;background:#f0fdf4;border:1px solid #dcfce7;",
+      caution: "color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;",
+      neutral: "color:#4b5563;background:#f9fafb;border:1px solid #eceff3;",
+    };
+    return `
+      <tr>
+        <td>${new Date(entry.time).toLocaleTimeString()}</td>
+        <td>${escapeHtml(formatDecisionTarget(entry.target))}</td>
+        <td>${escapeHtml(formatOutcomeLabel(entry.outcome))}</td>
+        <td><span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;${toneStyles[tone]}">${escapeHtml(formatSignedReward(entry.reward))}</span></td>
+        <td style="line-height:1.5;color:#555;">${escapeHtml(entry.why || buildRewardWhy(entry.outcome))}</td>
+      </tr>
+    `;
+  }).join("");
+  const conservativeCards = conservativeDecisions.map((decision) => `
+    <div style="padding:12px 14px;border:1px solid #eee;border-radius:8px;background:#fff;">
+      <div style="font-size:12px;font-weight:700;color:#9a3412;text-transform:uppercase;letter-spacing:.05em;">${escapeHtml(decision.label || "Conservative decision")}</div>
+      <div style="font-size:13px;font-weight:600;color:#333;margin-top:6px;">${escapeHtml(formatDecisionTarget(decision.target))}</div>
+      <div style="font-size:12px;color:#555;line-height:1.5;margin-top:4px;">${escapeHtml(decision.reason || "The agent stayed cautious here.")}</div>
+    </div>
+  `).join("");
   const trustSummary = `
     <div style="display:grid;gap:12px;">
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -379,30 +480,124 @@ async function renderAgentActivitySection() {
         ${buildMiniStat("Recent wins", explicitGood + (evaluationSummary.wakeSuccessCount ?? 0), "positive")}
         ${buildMiniStat("Recent friction", frictionCount, frictionCount > 0 ? "caution" : "neutral")}
       </div>
-      <div style="padding:12px 14px;border:1px solid #eceff3;border-radius:10px;background:#fafafa;">
-        <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">Protected right now</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(cautionSplit.current, "No current protected area.", "caution")}</div>
+      <div style="padding:14px;border:1px solid #dbeafe;border-radius:10px;background:#eff6ff;">
+        <div style="font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:6px;">${escapeHtml(buildAutonomyHeadline(autonomyState))}</div>
+        <div style="font-size:12px;color:#375a7f;line-height:1.6;">${escapeHtml(buildAutonomySupportCopy(autonomyState))}</div>
+        ${autonomyReasons
+          ? `<ul style="margin:10px 0 0 0;padding:0;">${autonomyReasons}</ul>`
+          : ""}
+        ${neededSignals
+          ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">${neededSignals}</div>`
+          : ""}
+      </div>
+      <div style="padding:14px;border:1px solid #eceff3;border-radius:10px;background:#fafafa;">
+        <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">How the agent learns</div>
+        <div style="font-size:12px;color:#555;line-height:1.6;margin-bottom:10px;">Tab Agent learns from both explicit feedback and implicit browser behavior. It stays conservative on purpose because it is better to miss a sleep than to break focus.</div>
+        <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+          <div style="padding:12px;border:1px solid #dcfce7;border-radius:10px;background:#f0fdf4;">
+            <div style="font-size:12px;font-weight:700;color:#166534;margin-bottom:8px;">Positive signals</div>
+            <div style="font-size:12px;color:#166534;line-height:1.6;">Tab stayed asleep for 15 minutes: safe outcome</div>
+            <div style="font-size:12px;color:#166534;line-height:1.6;">User clicked Good</div>
+          </div>
+          <div style="padding:12px;border:1px solid #fed7aa;border-radius:10px;background:#fff7ed;">
+            <div style="font-size:12px;font-weight:700;color:#9a3412;margin-bottom:8px;">Negative or caution signals</div>
+            <div style="font-size:12px;color:#9a3412;line-height:1.6;">User reopened a slept tab quickly</div>
+            <div style="font-size:12px;color:#9a3412;line-height:1.6;">User manually woke a slept group</div>
+            <div style="font-size:12px;color:#9a3412;line-height:1.6;">User clicked Undo, Bad, or Protect</div>
+          </div>
+        </div>
       </div>
       <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
         <div style="padding:12px 14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
-          <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">Learned caution areas</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(cautionSplit.learned, "No learned caution yet.", "caution")}</div>
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">What I'm protecting</div>
+          <div style="font-size:11px;color:#6b7280;line-height:1.5;margin-bottom:8px;">Protected groups, regretted URLs, and contexts where focus seems fragile.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(cautionSplit.current.concat(cautionSplit.learned), "No protected or caution-heavy area yet.", "caution")}</div>
         </div>
         <div style="padding:12px 14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
-          <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">Lower-risk areas</div>
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">What seems safe to sleep</div>
+          <div style="font-size:11px;color:#6b7280;line-height:1.5;margin-bottom:8px;">URLs and groups with repeated low-regret sleep outcomes.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(safeSplit.learned.concat(safeSplit.current), "Still learning safe contexts.", "safe")}</div>
         </div>
         <div style="padding:12px 14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
-          <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">Useful wake contexts</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(wakePatterns, "No wake pattern yet.", "info")}</div>
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Where wake helped</div>
+          <div style="font-size:11px;color:#6b7280;line-height:1.5;margin-bottom:8px;">Contexts where waking related tabs looked useful after re-entry.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">${renderMemoryTags(wakePatterns, "No useful wake pattern yet.", "info")}</div>
         </div>
       </div>
     </div>
   `;
+  const baselineMinutes = exportData.baselineComparison?.fixedRuleThresholdMinutes ?? 30;
 
   wrap.innerHTML = `
     ${trustSummary}
     ${summaryHtml}
+    <div style="margin-top:16px;padding:14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
+      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">Reward ledger</div>
+      <div style="font-size:12px;color:#555;line-height:1.6;margin-bottom:10px;">Recent autonomous sleep actions are translated into simple reward-shaped signals. This helps tune the local policy without turning Tab Agent into a full online RL system.</div>
+      ${rewardRows
+        ? `<table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Target/context</th>
+                <th>Outcome</th>
+                <th>Reward</th>
+                <th>Why this reward was assigned</th>
+              </tr>
+            </thead>
+            <tbody>${rewardRows}</tbody>
+          </table>`
+        : `<div style="font-size:12px;color:#888;">No autonomous sleep outcomes yet. Once the agent sleeps tabs, this ledger will show what happened and how it affected future caution.</div>`}
+    </div>
+    <div style="margin-top:16px;padding:14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
+      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">Recent conservative decisions</div>
+      <div style="font-size:12px;color:#555;line-height:1.6;margin-bottom:10px;">These are examples of why the agent held back instead of sleeping a tab. The goal is to make caution visible, not invisible.</div>
+      ${conservativeCards
+        ? `<div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">${conservativeCards}</div>`
+        : `<div style="font-size:12px;color:#888;">No conservative decisions to highlight yet.</div>`}
+    </div>
+    <div style="margin-top:16px;padding:14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
+      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">Evaluation framing</div>
+      <div style="font-size:12px;color:#555;line-height:1.6;margin-bottom:10px;">The comparison here is product and research framing, not a claim that Tab Agent always wins. The hard part of tab management is regret, so the point is to compare memory savings against interruption cost.</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Approach</th>
+            <th>Personalization</th>
+            <th>Autonomy</th>
+            <th>Feedback loop</th>
+            <th>Risk control</th>
+            <th>Explainability</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Static rule</td>
+            <td>None</td>
+            <td>Sleep anything inactive after ~${baselineMinutes} min</td>
+            <td>No</td>
+            <td>Low</td>
+            <td>High</td>
+          </tr>
+          <tr>
+            <td>Manual assistant</td>
+            <td>User-driven</td>
+            <td>Manual grouping, sleep, and wake</td>
+            <td>Only through the user</td>
+            <td>High</td>
+            <td>High</td>
+          </tr>
+          <tr>
+            <td>Tab Agent</td>
+            <td>Local behavior model</td>
+            <td>Conservative autonomous sleep and context wake</td>
+            <td>Explicit and implicit</td>
+            <td>Caution-first</td>
+            <td>High</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin:14px 0 12px;">
       <div style="font-size:12px;color:#666;">Review and export</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
@@ -845,6 +1040,7 @@ async function loadExportData() {
     groups: [],
     autonomousSummary: {},
     baselineComparison: {},
+    rewardLedger: [],
   };
 }
 
