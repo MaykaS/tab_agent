@@ -448,7 +448,7 @@ async function renderAgentActivitySection() {
   const neededSignals = buildNeededSignals(autonomyState)
     .map((item) => `<span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#f3f4f6;color:#4b5563;border:1px solid #e5e7eb;">${escapeHtml(item)}</span>`)
     .join("");
-  const rewardRows = rewardLedger.map((entry) => {
+  const rewardCards = rewardLedger.map((entry) => {
     const tone = getRewardTone(entry.reward);
     const toneStyles = {
       positive: "color:#166534;background:#f0fdf4;border:1px solid #dcfce7;",
@@ -456,13 +456,29 @@ async function renderAgentActivitySection() {
       neutral: "color:#4b5563;background:#f9fafb;border:1px solid #eceff3;",
     };
     return `
-      <tr>
-        <td>${new Date(entry.time).toLocaleTimeString()}</td>
-        <td>${escapeHtml(formatDecisionTarget(entry.target))}</td>
-        <td>${escapeHtml(formatOutcomeLabel(entry.outcome))}</td>
-        <td><span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;${toneStyles[tone]}">${escapeHtml(formatSignedReward(entry.reward))}</span></td>
-        <td style="line-height:1.5;color:#555;">${escapeHtml(entry.why || buildRewardWhy(entry.outcome))}</td>
-      </tr>
+      <div class="reward-ledger-card">
+        <div class="reward-ledger-meta">
+          <div class="reward-ledger-block">
+            <div class="reward-ledger-label">Time</div>
+            <div class="reward-ledger-value">${escapeHtml(new Date(entry.time).toLocaleTimeString())}</div>
+          </div>
+          <div class="reward-ledger-block">
+            <div class="reward-ledger-label">Target/context</div>
+            <div class="reward-ledger-value">${escapeHtml(formatDecisionTarget(entry.target))}</div>
+          </div>
+          <div class="reward-ledger-block">
+            <div class="reward-ledger-label">Outcome</div>
+            <div class="reward-ledger-value">${escapeHtml(formatOutcomeLabel(entry.outcome))}</div>
+          </div>
+          <div class="reward-ledger-block">
+            <div class="reward-ledger-label">Reward</div>
+            <div class="reward-ledger-value"><span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;${toneStyles[tone]}">${escapeHtml(formatSignedReward(entry.reward))}</span></div>
+          </div>
+        </div>
+        <div class="reward-ledger-why">
+          <span style="font-weight:600;color:#374151;">Why:</span> ${escapeHtml(entry.why || buildRewardWhy(entry.outcome))}
+        </div>
+      </div>
     `;
   }).join("");
   const conservativeCards = conservativeDecisions.map((decision) => `
@@ -534,19 +550,8 @@ async function renderAgentActivitySection() {
     <div style="margin-top:16px;padding:14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
       <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">Reward ledger</div>
       <div style="font-size:12px;color:#555;line-height:1.6;margin-bottom:10px;">Recent autonomous sleep actions are translated into simple reward-shaped signals. This helps tune the local policy without turning Tab Agent into a full online RL system.</div>
-      ${rewardRows
-        ? `<table>
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Target/context</th>
-                <th>Outcome</th>
-                <th>Reward</th>
-                <th>Why this reward was assigned</th>
-              </tr>
-            </thead>
-            <tbody>${rewardRows}</tbody>
-          </table>`
+      ${rewardCards
+        ? `<div class="reward-ledger-list">${rewardCards}</div>`
         : `<div style="font-size:12px;color:#888;">No autonomous sleep outcomes yet. Once the agent sleeps tabs, this ledger will show what happened and how it affected future caution.</div>`}
     </div>
     <div style="margin-top:16px;padding:14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
@@ -559,44 +564,46 @@ async function renderAgentActivitySection() {
     <div style="margin-top:16px;padding:14px;border:1px solid #eceff3;border-radius:10px;background:#fff;">
       <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">Evaluation framing</div>
       <div style="font-size:12px;color:#555;line-height:1.6;margin-bottom:10px;">The comparison here is product and research framing, not a claim that Tab Agent always wins. The hard part of tab management is regret, so the point is to compare memory savings against interruption cost.</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Approach</th>
-            <th>Personalization</th>
-            <th>Autonomy</th>
-            <th>Feedback loop</th>
-            <th>Risk control</th>
-            <th>Explainability</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Static rule</td>
-            <td>None</td>
-            <td>Sleep anything inactive after ~${baselineMinutes} min</td>
-            <td>No</td>
-            <td>Low</td>
-            <td>High</td>
-          </tr>
-          <tr>
-            <td>Manual assistant</td>
-            <td>User-driven</td>
-            <td>Manual grouping, sleep, and wake</td>
-            <td>Only through the user</td>
-            <td>High</td>
-            <td>High</td>
-          </tr>
-          <tr>
-            <td>Tab Agent</td>
-            <td>Local behavior model</td>
-            <td>Conservative autonomous sleep and context wake</td>
-            <td>Explicit and implicit</td>
-            <td>Caution-first</td>
-            <td>High</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-scroll comparison-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Approach</th>
+              <th>Personalization</th>
+              <th>Autonomy</th>
+              <th>Feedback loop</th>
+              <th>Risk control</th>
+              <th>Explainability</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Static rule</td>
+              <td>None</td>
+              <td>Sleep anything inactive after ~${baselineMinutes} min</td>
+              <td>No</td>
+              <td>Low</td>
+              <td>High</td>
+            </tr>
+            <tr>
+              <td>Manual assistant</td>
+              <td>User-driven</td>
+              <td>Manual grouping, sleep, and wake</td>
+              <td>Only through the user</td>
+              <td>High</td>
+              <td>High</td>
+            </tr>
+            <tr>
+              <td>Tab Agent</td>
+              <td>Local behavior model</td>
+              <td>Conservative autonomous sleep and context wake</td>
+              <td>Explicit and implicit</td>
+              <td>Caution-first</td>
+              <td>High</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin:14px 0 12px;">
       <div style="font-size:12px;color:#666;">Review and export</div>
